@@ -1,0 +1,22 @@
+{
+  "rules": {
+    "batteries": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "$batteryId": {
+        ".read": "auth != null && (resource == null || resource.data.userId == auth.uid)",
+        ".write": "auth != null && (resource == null || resource.data.userId == auth.uid) && (newData.child('userId').val() == auth.uid)",
+        "telemetry": {
+          ".read": "auth != null && (resource == null || resource.data.userId == auth.uid)",
+          ".write": "auth != null && (resource == null || resource.data.userId == auth.uid)"
+        }
+      }
+    },
+    "users": {
+      "$uid": {
+        ".read": "auth != null && auth.uid == $uid",
+        ".write": "auth != null && auth.uid == $uid"
+      }
+    }
+  }
+}

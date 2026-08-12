@@ -1,0 +1,41 @@
+# Environment Files
+.env
+.env.*
+!.env.example
+
+# Credentials and Secret Files
+serviceAccountKey.json
+**/serviceAccountKey.json
+
+# Ignore generic JSON files except explicit project source files
+*.json
+!frontend/package.json
+!frontend/package-lock.json
+!frontend/tsconfig.json
+!frontend/firebase.rules.json
+
+# Local/tool-generated files
+.freebuff/
+
+# Python & Virtual Environments
+__pycache__/
+*.pyc
+.venv/
+venv/
+env/
+*.log
+
+# ML Models & Datasets
+*.joblib
+*.pkl
+*.csv
+*.xlsx
+*.xls
+
+# Node.js dependencies & build outputs
+node_modules/
+dist/
+build/
+
+# OS
+.DS_Store

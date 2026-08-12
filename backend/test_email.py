@@ -1,0 +1,275 @@
+import os
+import smtplib
+from email.message import EmailMessage
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# ==============================
+# Gmail Configuration
+# ==============================
+
+SMTP_HOST = os.getenv("SMTP_HOST")
+SMTP_PORT = int(os.getenv("SMTP_PORT", 587))
+
+GMAIL_USER = os.getenv("GMAIL_USER")
+GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD")
+
+RECIPIENT = os.getenv("ALERT_RECIPIENT_EMAIL")
+
+
+# ==============================
+# DEMO BATTERY DATA
+# ==============================
+
+battery_health = 46
+soc = 61
+soh = 76
+
+cell1_voltage = 3.60
+cell2_voltage = 3.60
+cell3_voltage = 1.10
+
+temperature = 48.0
+temperature_rise = 2.1
+
+anomaly_score = 94
+overall_risk = 92
+
+# Calculate cell imbalance automatically
+max_voltage = max(cell1_voltage, cell2_voltage, cell3_voltage)
+min_voltage = min(cell1_voltage, cell2_voltage, cell3_voltage)
+
+cell_imbalance = max_voltage - min_voltage
+
+# Cell 3 voltage reduction compared with the highest cell
+voltage_reduction = ((max_voltage - cell3_voltage) / max_voltage) * 100
+
+degradation_rate = -0.8
+predicted_soh = 65
+
+
+# ==============================
+# Email Subject
+# ==============================
+
+msg = EmailMessage()
+
+msg["Subject"] = (
+    "🚨 THE BLACK BOX - CRITICAL BATTERY ALERT | CELL 3"
+)
+
+msg["From"] = GMAIL_USER
+msg["To"] = RECIPIENT
+
+
+# ==============================
+# Email Content
+# ==============================
+
+email_body = f"""
+THE BLACK BOX
+AI BATTERY MANAGEMENT & SAFETY SYSTEM
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🚨 CRITICAL BATTERY ALERT
+
+Battery Status: 🔴 CRITICAL
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔋 BATTERY OVERVIEW
+
+Battery Health Score : {battery_health}/100
+State of Charge (SOC): {soc}%
+State of Health (SOH): {soh}%
+Overall Risk         : {overall_risk}/100
+AI Anomaly Score     : {anomaly_score}/100
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⚡ CELL ANALYSIS
+
+Cell 1 : {cell1_voltage:.2f} V  🟢 HEALTHY
+Cell 2 : {cell2_voltage:.2f} V  🟢 HEALTHY
+Cell 3 : {cell3_voltage:.2f} V  🔴 CRITICAL
+
+Maximum Cell Voltage : {max_voltage:.2f} V
+Minimum Cell Voltage : {min_voltage:.2f} V
+
+CELL IMBALANCE       : {cell_imbalance:.2f} V 🔴 CRITICAL
+
+⚠️ Cell 3 is significantly below the other cells.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📉 VOLTAGE DEGRADATION
+
+Affected Cell        : Cell 3
+Current Voltage      : {cell3_voltage:.2f} V
+Voltage Difference   : -{cell_imbalance:.2f} V
+Voltage Reduction    : {voltage_reduction:.1f}%
+
+Trend                : 📉 RAPID DEGRADATION
+
+Cell 1 and Cell 2 remain near {max_voltage:.2f} V,
+while Cell 3 has dropped to {cell3_voltage:.2f} V.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🌡️ THERMAL ANALYSIS
+
+Temperature          : {temperature:.1f} °C
+Temperature Rise     : +{temperature_rise:.1f} °C/min
+Thermal Risk         : 🟠 HIGH
+
+⚠️ Temperature is elevated and should be monitored
+alongside the abnormal cell voltage.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🧠 AI ANOMALY ANALYSIS
+
+Anomaly Score        : {anomaly_score}/100
+Severity             : 🔴 CRITICAL
+
+Detected abnormalities:
+
+• Severe Cell 3 voltage deviation
+• Significant cell imbalance
+• Abnormal voltage degradation
+• Elevated battery temperature
+
+Possible causes:
+
+• Cell degradation
+• Abnormal discharge
+• Increased internal resistance
+• Physical cell damage
+• Sensor measurement error
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🤖 AI BATTERY REASONING
+
+OBSERVATION:
+
+Cell 3 is operating at {cell3_voltage:.2f} V while
+Cells 1 and 2 remain near {max_voltage:.2f} V.
+
+DEVIATION:
+
+Cell 3 is {cell_imbalance:.2f} V below the highest
+cell, creating a severe cell imbalance.
+
+RISK:
+
+The combination of severe voltage deviation,
+cell imbalance and elevated temperature indicates
+an abnormal battery condition.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📊 DEGRADATION ANALYSIS
+
+Current SOH          : {soh}%
+Estimated degradation: {degradation_rate:.1f}% / cycle
+
+Projected SOH       : ~{predicted_soh}% after 20 cycles
+
+Trend                : 📉 DEGRADING
+
+⚠️ The projection is an AI estimate based on
+available historical data and is not a guaranteed
+failure date.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🚨 RECOMMENDED ACTION
+
+1. VERIFY the Cell 3 voltage measurement.
+
+2. If the reading is confirmed, STOP NORMAL
+   OPERATION where required.
+
+3. INSPECT / ISOLATE the affected cell according
+   to the battery manufacturer's safety procedures.
+
+4. Consider replacement if the cell is confirmed
+   damaged.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎯 AI DECISION SUMMARY
+
+Battery Health : {battery_health}/100
+Cell 3         : {cell3_voltage:.2f} V
+Imbalance      : {cell_imbalance:.2f} V
+Temperature    : {temperature:.1f} °C
+Anomaly        : {anomaly_score}/100
+SOH            : {soh}%
+
+FINAL STATUS:
+
+🔴 CRITICAL BATTERY CONDITION
+
+Cell 3 requires immediate verification and
+inspection.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+THE BLACK BOX
+
+SENSE → ANALYZE → DETECT → PREDICT → ALERT → PREVENT
+
+This is an automated alert generated by
+THE BLACK BOX AI Battery Management System.
+"""
+
+msg.set_content(email_body)
+
+
+# ==============================
+# Send Email
+# ==============================
+
+try:
+
+    print("Connecting to Gmail...")
+
+    with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
+
+        server.starttls()
+
+        print("Logging into Gmail...")
+
+        server.login(
+            GMAIL_USER,
+            GMAIL_APP_PASSWORD
+        )
+
+        print("Sending BLACK BOX alert...")
+
+        server.send_message(msg)
+
+    print()
+    print("======================================")
+    print("✅ BLACK BOX ALERT EMAIL SENT")
+    print("======================================")
+    print(f"Recipient: {RECIPIENT}")
+    print(f"Cell 3: {cell3_voltage:.2f} V")
+    print(f"Temperature: {temperature:.1f} °C")
+    print(f"Anomaly Score: {anomaly_score}/100")
+    print(f"Battery Health: {battery_health}/100")
+    print("======================================")
+
+
+except Exception as e:
+
+    print()
+    print("======================================")
+    print("❌ EMAIL FAILED")
+    print("======================================")
+    print("Error:", e)
+    print("======================================")

@@ -72,6 +72,22 @@ export const aiService = {
     const avg = avgTemp(pack)
     const deviation = pack.cells.map((c) => Math.abs(c.deviation)).reduce((a, b) => a + b, 0) / pack.cells.length
 
+    if (q.includes('0.07') || q.includes('removed') || q.includes('differentiate') || q.includes('floating') || q.includes('disconnect')) {
+      return `To differentiate a REMOVED CELL from a DEAD CELL at ~0.07V:
+
+1. **Cell Removed (Open Circuit / Floating Pin ~0.07V)**:
+   - Temperature Rise (ΔT) = 0°C (zero current can flow through a physically open circuit, so zero internal ohmic heat is generated).
+   - Series circuit is broken (0A pack load current, zero power throughput).
+   - Gas sensor remains strictly at baseline (ambient air).
+
+2. **Dead Cell (Electrochemically Depleted / Shorted Cell ~0.07V)**:
+   - Massive Pack Voltage Imbalance (ΔV ≥ 0.35V) with other connected series cells.
+   - Active Temperature Rise (ΔT > 0°C) due to internal resistive dissipation or self-discharge under load.
+   - Gas sensor outgassing signals (Gas Index > 0) from electrolyte breakdown.
+
+Check physical cell holder contacts if ΔT = 0°C and no heat is present; isolate and replace the cell if high imbalance and active heat are detected.`
+    }
+
     if (q.includes('safe') || q.includes('health')) {
       return `${label} is ${pack.status === 'healthy' ? 'healthy' : pack.status === 'warning' ? 'in a warning state' : 'in a critical state'} at ${fmtPct(pack.soh)} SOH. Pack voltage is ${fmtV(pack.voltage)}, average cell temperature ${fmtTemp(pack.temperature)}. ${
         pack.status === 'healthy'

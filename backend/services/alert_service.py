@@ -62,22 +62,29 @@ class AlertService:
             {"index": 3, "voltage": c3, "temperature": temp_c, "status": "critical" if c3 <= 2.5 else "warning" if c3 < 3.2 else "healthy"},
         ]
 
-        # Determine Specific Issue & Action (Dead Battery 0V & Dead Cell 0V Handling)
-        zero_cells = [c for c in cells_list if c["voltage"] <= 0.5]
+        # Determine Specific Issue & Action (Dead Battery 0V/0.07V & Removed Cell Differentiation)
+        zero_cells = [c for c in cells_list if c["voltage"] <= 0.50]
+        removed_cells = [c for c in cells_list if c["voltage"] <= 0.15]
         is_entire_pack_dead = total_v <= 1.0 or (c1 <= 0.5 and c2 <= 0.5 and c3 <= 0.5)
         is_low_net_v = total_v < 7.5
 
         if is_entire_pack_dead:
             severity = "CRITICAL"
-            detected_prob = f"🚨 DEAD BATTERY PACK: Net voltage is {total_v:.2f} V (0.0 V / depleted). All cells are drained/dead!"
-            rec_action = "IMMEDIATELY ISOLATE DEAD PACK. Inspect cells for physical damage or deep discharge state before recharging."
+            detected_prob = f"🚨 DEAD BATTERY PACK: Net voltage is {total_v:.2f} V (0.00 V / depleted). All cells are drained or disconnected!"
+            rec_action = "IMMEDIATELY ISOLATE PACK. Check physical cell contact terminals and inspect cells before recharging."
             sms_msg = f"🚨 THE BLACK BOX CRITICAL: Battery pack is DEAD ({total_v:.2f}V). Disconnect immediately!"
+        elif removed_cells:
+            severity = "CRITICAL"
+            removed_indices = [str(c["index"]) for c in removed_cells]
+            detected_prob = f"🔌 CELL REMOVED / DISCONNECTED: Cell(s) {', '.join(removed_indices)} reading floating open-circuit voltage ({min_v:.2f} V ~0.07 V). Cell appears physically REMOVED or DISCONNECTED from holder!"
+            rec_action = f"Check physical cell holder contact and re-insert Cell(s) {', '.join(removed_indices)} securely."
+            sms_msg = f"🔌 THE BLACK BOX ALERT: Cell(s) {', '.join(removed_indices)} REMOVED/DISCONNECTED (Floating {min_v:.2f}V). Check contact!"
         elif zero_cells:
             severity = "CRITICAL"
             zero_indices = [str(c["index"]) for c in zero_cells]
-            detected_prob = f"🚨 CRITICAL CELL FAILURE: Cell(s) {', '.join(zero_indices)} voltage is 0.0 V (depleted / dead). Replace Cell(s) {', '.join(zero_indices)} immediately!"
+            detected_prob = f"🚨 CRITICAL DEAD CELL: Cell(s) {', '.join(zero_indices)} voltage is {min_v:.2f} V (depleted / dead cell under load). Replace Cell(s) {', '.join(zero_indices)} immediately!"
             rec_action = f"Isolate battery pack and REPLACE Cell(s) {', '.join(zero_indices)} before operating!"
-            sms_msg = f"🚨 THE BLACK BOX CRITICAL: Cell(s) {', '.join(zero_indices)} is 0.0V / depleted. Replace immediately!"
+            sms_msg = f"🚨 THE BLACK BOX CRITICAL: Cell(s) {', '.join(zero_indices)} is DEAD ({min_v:.2f}V). Replace immediately!"
         elif is_low_net_v:
             severity = "CRITICAL"
             detected_prob = f"⚠️ CRITICAL LOW VOLTAGE: Battery net pack voltage ({total_v:.2f} V < 7.5 V) is depleted."
@@ -100,16 +107,17 @@ class AlertService:
             rec_action = "Continue standard monitoring."
             sms_msg = ""
 
-        # Only dispatch for Warning / Critical conditions
-        if severity not in ["WARNING", "CRITICAL"] and not force_send:
-            return None
+        weakest = min(cells_list, key=lambda c: c["voltage"]) if cells_list else {"index": 1, "voltage": 3.6}
 
         details = {
             "severity": severity,
             "min_voltage": min_v,
             "imbalance_v": imbalance_v,
             "temperature": temp_c,
-            "anomaly": anomaly
+            "anomaly": anomaly,
+            "weakest_cell_index": weakest.get("index", 1),
+            "zero_cells": [c["index"] for c in zero_cells],
+            "removed_cells": [c["index"] for c in removed_cells]
         }
 
         # Deduplication check
@@ -118,20 +126,32 @@ class AlertService:
             current_severity=severity,
             current_details=details
         )
-        alert_tracker.update_state(battery_id, details)
 
         if not should_send and not force_send:
+            alert_tracker.update_state(battery_id, details)
             logger.info(f"[AlertService] Alert suppressed by deduplication rules ({reason}) for battery {battery_id}.")
             return {"status": "suppressed", "reason": reason, "severity": severity}
 
-        # Build Email Content
-        ai_assess = f"System detected {severity} condition for battery {battery_id}. Net V: {total_v:.2f} V, Imbalance: {imbalance_v:.2f} V, Temperature: {temp_c:.1f} °C, Anomaly: {anomaly}."
-        possible_causes = [
-            "Internal cell degradation or impedance mismatch",
-            "Deep discharge or over-discharge state",
-            "Thermal stress or insufficient cooling",
-            "Measurement sensor calibration drift"
-        ]
+        # Build Email Content & Handle Event Type
+        event_type = "RECOVERY" if reason == "RECOVERY" else "ALERT"
+
+        if event_type == "RECOVERY":
+            detected_prob = f"🟢 HEALTHY: Battery pack net voltage is {total_v:.2f} V. Drained/disconnected cell replacement verified."
+            ai_assess = f"Battery pack condition has returned to normal healthy state ({total_v:.2f} V). Cell replacement or reconnection verified."
+            possible_causes = [
+                "Drained or damaged cell successfully replaced with healthy unit",
+                "Disconnected cell reconnected securely to battery holder",
+                "Battery pack recharged and balanced to safe limits"
+            ]
+            rec_action = "No action required. Battery pack is operating normally within optimal parameters."
+        else:
+            ai_assess = f"System detected {severity} condition for battery {battery_id}. Net V: {total_v:.2f} V, Imbalance: {imbalance_v:.2f} V, Temperature: {temp_c:.1f} °C, Anomaly: {anomaly}."
+            possible_causes = [
+                "Internal cell degradation or impedance mismatch",
+                "Deep discharge or over-discharge state",
+                "Thermal stress or insufficient cooling",
+                "Measurement sensor calibration drift"
+            ]
 
         subject, text_body, html_body = email_service.build_alert_content(
             severity=severity,
@@ -149,7 +169,7 @@ class AlertService:
             ai_assessment=ai_assess,
             possible_causes=possible_causes,
             recommended_action=rec_action,
-            event_type="ALERT"
+            event_type=event_type
         )
 
         recipient = email_service.default_recipient
@@ -167,6 +187,13 @@ class AlertService:
                 sms_sent = sms_service.send_sms(sms_msg)
             except Exception as e:
                 logger.warning(f"[AlertService] SMS dispatch failed (ignored): {e}")
+
+        # Update tracker state with exact dispatch result
+        import time
+        details["email_sent"] = email_sent
+        details["sms_sent"] = sms_sent
+        details["last_dispatch_ts"] = time.time()
+        alert_tracker.update_state(battery_id, details)
 
         logger.info(f"[AlertService] Dispatched Gmail alert to {recipient} (Success: {email_sent})")
 

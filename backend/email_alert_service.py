@@ -42,7 +42,8 @@ class SmartAlertTracker:
         """
         Determines if an email should be sent based on smart alerting rules:
         - First detection -> Send email
-        - Condition persists unchanged -> Do NOT spam (suppress)
+        - Previous dispatch failed -> Retry sending email
+        - Persistent 0V dead cell -> Re-alert every 60s cooldown
         - Condition escalates -> Send escalation email
         - Condition recovers -> Send recovery email
         """
@@ -56,6 +57,10 @@ class SmartAlertTracker:
                 return True, "INITIAL_TRIGGER"
             return False, "NO_ACTION"
 
+        # Retry Rule: If previous alert failed to send via SMTP, retry immediately on new telemetry
+        if last_state.get("email_sent") is False and curr_rank > 0:
+            return True, "RETRY_PREVIOUS_FAILED_DISPATCH"
+
         last_rank = severity_rank.get(last_state.get("severity", "NORMAL"), 0)
 
         # Recovery Rule: previous alert active (WARNING/HIGH/CRITICAL), now returned to NORMAL
@@ -66,11 +71,23 @@ class SmartAlertTracker:
         if curr_rank > last_rank:
             return True, "ESCALATION"
 
+        # 0V Dead Cell Cooldown Re-Alert Rule (Every 60s for persistent 0V cell)
+        curr_min_v = current_details.get("min_voltage", 99.0)
+        if current_severity == "CRITICAL" and curr_min_v <= 0.5:
+            last_ts = last_state.get("last_dispatch_ts", 0)
+            if (time.time() - last_ts) >= 60.0:
+                return True, "CRITICAL_0V_PERSISTENT_ALERT"
+
         # Persistence Rule: same severity level
         if curr_rank == last_rank and curr_rank > 0:
+            # Check if affected cell index changed (e.g. Cell 1 was faulty, now Cell 2 is faulty)
+            last_weakest = last_state.get("weakest_cell_index")
+            curr_weakest = current_details.get("weakest_cell_index")
+            if last_weakest and curr_weakest and last_weakest != curr_weakest:
+                return True, "DIFFERENT_CELL_FAULT"
+
             # Check if details worsened significantly (e.g. voltage dropped further by >= 0.2V)
             last_min_v = last_state.get("min_voltage", 99.0)
-            curr_min_v = current_details.get("min_voltage", 99.0)
             if (last_min_v - curr_min_v) >= 0.20:
                 return True, "SIGNIFICANT_DETERIORATION"
             

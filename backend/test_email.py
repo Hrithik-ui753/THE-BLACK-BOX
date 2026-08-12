@@ -255,7 +255,7 @@ try:
 
     print()
     print("======================================")
-    print("✅ BLACK BOX ALERT EMAIL SENT")
+    print("[SUCCESS] BLACK BOX ALERT EMAIL SENT")
     print("======================================")
     print(f"Recipient: {RECIPIENT}")
     print(f"Cell 3: {cell3_voltage:.2f} V")
@@ -269,7 +269,7 @@ except Exception as e:
 
     print()
     print("======================================")
-    print("❌ EMAIL FAILED")
+    print("[FAILED] EMAIL FAILED")
     print("======================================")
     print("Error:", e)
     print("======================================")

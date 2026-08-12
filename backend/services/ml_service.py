@@ -192,12 +192,20 @@ class MLService:
         else:
             system_status = "NORMAL"
 
+        anomaly_label = predicted_anomaly
+        if min_cell_v <= 0.15:
+            anomaly_label = "open_circuit_removed_cell"
+            anomaly_confidence = 99.0
+        elif min_cell_v <= 0.50:
+            anomaly_label = "dead_cell_detected"
+            anomaly_confidence = 99.0
+
         return {
             "soc": predicted_soc,
             "soh": predicted_soh,
             "rul_cycles": int(predicted_rul),
-            "anomaly": predicted_anomaly if min_cell_v > 0.5 else "dead_cell_detected",
-            "anomaly_confidence": anomaly_confidence if min_cell_v > 0.5 else 99.0,
+            "anomaly": anomaly_label,
+            "anomaly_confidence": anomaly_confidence,
             "system_status": system_status
         }
 

@@ -260,6 +260,12 @@ def evaluate_and_send_alert(payload: TelemetryAlertPayload):
         except Exception as sms_err:
             print(f"[AlertRoutes] SMS dispatch skipped: {sms_err}")
 
+    import time
+    details["email_sent"] = sent
+    details["sms_sent"] = sms_sent
+    details["last_dispatch_ts"] = time.time()
+    alert_tracker.update_state(payload.battery_id, details)
+
     return {
         "status": "sent" if sent else "recorded",
         "reason": reason,

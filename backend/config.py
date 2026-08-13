@@ -53,3 +53,7 @@ ANOMALY_ENCODER_PATH = str(ML_DIR / "anomaly" / "anomaly_label_encoder.joblib")
 
 # Polling Interval for live telemetry background reader
 POLL_INTERVAL_SECONDS = float(os.getenv("POLL_INTERVAL_SECONDS", "3.0"))
+
+# Cell Presence Validation Threshold (V)
+CELL_ABSENT_THRESHOLD = float(os.getenv("CELL_ABSENT_THRESHOLD", "0.15"))
+

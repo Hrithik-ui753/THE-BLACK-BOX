@@ -4,57 +4,26 @@ from typing import Dict, Any, Optional
 from pathlib import Path
 
 import firebase_admin
-from firebase_admin import credentials, db
-
-from config import get_service_account_path, FIREBASE_DATABASE_URL, FIREBASE_PROJECT_ID
+from firebase_admin import db
+from authentication.firebase_admin_config import initialize_firebase
 
 logger = logging.getLogger(__name__)
 
 
 class FirebaseService:
     def __init__(self):
-        self.initialized = False
         self.last_reading_hash: Optional[str] = None
         self.last_timestamp: Optional[str] = None
+        self._warned_uninitialized = False
+        self._logged_read_status = False
         self.initialize_firebase()
 
-    def initialize_firebase(self):
-        if not firebase_admin._apps:
-            import os
-            private_key = os.getenv("FIREBASE_PRIVATE_KEY")
-            client_email = os.getenv("FIREBASE_CLIENT_EMAIL")
-            project_id = os.getenv("FIREBASE_PROJECT_ID", FIREBASE_PROJECT_ID)
+    @property
+    def initialized(self) -> bool:
+        return bool(firebase_admin._apps)
 
-            if private_key and client_email:
-                formatted_pk = private_key.replace("\\n", "\n")
-                cred_dict = {
-                    "type": "service_account",
-                    "project_id": project_id,
-                    "private_key": formatted_pk,
-                    "client_email": client_email,
-                }
-                cred = credentials.Certificate(cred_dict)
-                firebase_admin.initialize_app(cred, {
-                    'databaseURL': FIREBASE_DATABASE_URL,
-                    'projectId': project_id
-                })
-                logger.info(f"[FirebaseService] Initialized Firebase RTDB via environment variables for project: {project_id}")
-                self.initialized = True
-            else:
-                key_path = get_service_account_path()
-                if Path(key_path).exists():
-                    cred = credentials.Certificate(key_path)
-                    firebase_admin.initialize_app(cred, {
-                        'databaseURL': FIREBASE_DATABASE_URL,
-                        'projectId': FIREBASE_PROJECT_ID
-                    })
-                    logger.info(f"[FirebaseService] Initialized Firebase RTDB at {FIREBASE_DATABASE_URL} with {key_path}")
-                    self.initialized = True
-                else:
-                    logger.error(f"[FirebaseService] Service account key not found at {key_path} and environment variables not set.")
-                    self.initialized = False
-        else:
-            self.initialized = True
+    def initialize_firebase(self) -> bool:
+        return initialize_firebase()
 
     def fetch_live_telemetry(self) -> Optional[Dict[str, Any]]:
         """
@@ -63,12 +32,20 @@ class FirebaseService:
         Validates, sanitizes, and returns a normalized dictionary.
         """
         if not self.initialized:
-            self.initialize_firebase()
-            if not self.initialized:
-                logger.error("[FirebaseService] Cannot fetch telemetry: Firebase not initialized.")
+            if not self.initialize_firebase():
+                logger.error("[FirebaseService] ERROR: Firebase Admin SDK is not initialized before telemetry read.")
                 return None
 
         try:
+            if not self._logged_read_status:
+                apps_count = len(firebase_admin._apps) if firebase_admin._apps else 0
+                app_obj = firebase_admin.get_app() if firebase_admin._apps else None
+                project_id = app_obj.project_id if app_obj else "Unknown"
+                logger.info(f"[FirebaseService] Firebase apps initialized: {apps_count}")
+                logger.info(f"[FirebaseService] Firebase app project ID: {project_id}")
+                logger.info(f"[FirebaseService] Reading Firebase path: battery/live")
+                self._logged_read_status = True
+
             live_ref = db.reference("battery/live")
             data = live_ref.get()
 

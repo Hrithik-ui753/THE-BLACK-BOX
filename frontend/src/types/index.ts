@@ -1,5 +1,5 @@
-export type CellStatus = 'healthy' | 'warning' | 'critical'
-export type BatteryStatus = 'healthy' | 'warning' | 'critical' | 'offline'
+export type CellStatus = 'healthy' | 'warning' | 'critical' | 'CELL_REMOVED'
+export type BatteryStatus = 'healthy' | 'warning' | 'critical' | 'offline' | 'CELL_MISSING'
 export type ConnectionState = 'connected' | 'connecting' | 'waiting' | 'interrupted'
 export type ChargeState = 'charging' | 'discharging' | 'idle'
 export type BatteryViewMode = '3d' | '2d'
@@ -29,8 +29,8 @@ export interface CellTelemetry {
   index: number // 1-based
   voltage: number
   temperature: number
-  soc: number
-  soh: number
+  soc: number | null
+  soh: number | null
   current: number
   status: CellStatus
   /** deviation from pack cell average, mV */
@@ -39,6 +39,7 @@ export interface CellTelemetry {
   risk: number
   /** 0–100 gas level; >0 renders the smoke/haze layer */
   gas: number
+  mlSkipped?: boolean
 }
 
 export interface PackTelemetry {
@@ -47,12 +48,14 @@ export interface PackTelemetry {
   voltage: number
   current: number
   temperature: number
-  soc: number
-  soh: number
+  soc: number | null
+  soh: number | null
   cycleCount: number
   status: BatteryStatus
   chargeState: ChargeState
   cells: CellTelemetry[]
+  presentCells?: string
+  packPresenceStatus?: string
 }
 
 export interface Anomaly {

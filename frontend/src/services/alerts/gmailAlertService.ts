@@ -78,7 +78,7 @@ class GmailAlertService {
 
     // Quick client filter before hitting backend: trigger if anomaly or voltage drop or imbalance or high temp
     const isCritical = minV < 2.80 || imbalanceV > 0.20 || pack.temperature > 55
-    const isWarning = imbalanceV > 0.10 || pack.temperature > 45 || pack.soh < 80
+    const isWarning = imbalanceV > 0.10 || pack.temperature > 45 || (pack.soh ?? 90) < 80
 
     if (!forceSend && !isCritical && !isWarning) return
 

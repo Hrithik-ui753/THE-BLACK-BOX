@@ -7,22 +7,16 @@ import { STATUS_COLOR } from '@/constants/status'
 import { useAppStore } from '@/store/useAppStore'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
 
-const CELL_R = 0.48
-const CELL_H = 1.7
-const COLS = [-1.78, 0, 1.78]
-const ROWS = [1.04, -1.04]
-const CELL_POSITIONS: THREE.Vector3[] = []
-for (let r = 0; r < 2; r++) {
-  for (let c = 0; c < 3; c++) {
-    CELL_POSITIONS.push(new THREE.Vector3(COLS[c], CELL_H / 2, ROWS[r]))
-  }
-}
+const CELL_R = 0.52
+const CELL_H = 1.9
+const COLS = [-1.55, 0, 1.55]
+const CELL_POSITIONS: THREE.Vector3[] = COLS.map((x) => new THREE.Vector3(x, CELL_H / 2, 0))
 
-const SERIES_ORDER = [0, 1, 2, 5, 4, 3] // cell indices (0-based) in electrical series
-const DEFAULT_TARGET = new THREE.Vector3(0, 1, 0)
-const PARTICLE_COUNT = 26
-const ENERGY_CHARGING = new THREE.Color('#22d3ee')
-const ENERGY_DISCHARGING = new THREE.Color('#5b8db8')
+const SERIES_ORDER = [0, 1, 2] // cell indices (0-based) in electrical series (3-Cell 3S Pack)
+const DEFAULT_TARGET = new THREE.Vector3(0, 1.0, 0)
+const PARTICLE_COUNT = 24
+const ENERGY_CHARGING = new THREE.Color('#38bdf8')
+const ENERGY_DISCHARGING = new THREE.Color('#34d399')
 
 function makeGlowTexture(): THREE.CanvasTexture {
   const canvas = document.createElement('canvas')
@@ -30,9 +24,9 @@ function makeGlowTexture(): THREE.CanvasTexture {
   canvas.height = 128
   const ctx = canvas.getContext('2d')!
   const g = ctx.createRadialGradient(64, 64, 0, 64, 64, 64)
-  g.addColorStop(0, 'rgba(34,211,238,0.55)')
-  g.addColorStop(0.35, 'rgba(34,211,238,0.18)')
-  g.addColorStop(1, 'rgba(34,211,238,0)')
+  g.addColorStop(0, 'rgba(56,189,248,0.55)')
+  g.addColorStop(0.35, 'rgba(56,189,248,0.18)')
+  g.addColorStop(1, 'rgba(56,189,248,0)')
   ctx.fillStyle = g
   ctx.fillRect(0, 0, 128, 128)
   return new THREE.CanvasTexture(canvas)
@@ -73,7 +67,7 @@ const Cell = memo(function Cell({
     const pack = st.selectedBatteryId ? st.telemetry[st.selectedBatteryId] : undefined
     const cell = pack?.cells.find((c) => c.index === index)
     const status = cell?.status ?? 'healthy'
-    color.current.set(STATUS_COLOR[status])
+    color.current.set(STATUS_COLOR[status] ?? '#34d399')
     const t = clock.elapsedTime
     const pulse = 0.55 + Math.sin(t * 1.6 + index) * (status === 'healthy' ? 0.14 : 0.24)
     if (capRef.current) {
@@ -86,7 +80,6 @@ const Cell = memo(function Cell({
       m.emissive.copy(color.current)
       m.emissiveIntensity = reduced ? 0.7 : 0.9 + Math.sin(t * 1.6 + index) * 0.2
     }
-    // gentle breathing scale on the body
     if (bodyRef.current && !reduced) {
       const s = 1 + Math.sin(t * 1.4 + index * 1.7) * 0.006
       bodyRef.current.scale.setScalar(s)
@@ -95,22 +88,36 @@ const Cell = memo(function Cell({
 
   return (
     <group position={position}>
+      {/* Cell Body Cylinder */}
       <mesh ref={bodyRef} onClick={(e) => { e.stopPropagation(); onSelect(index) }} castShadow>
-        <cylinderGeometry args={[CELL_R, CELL_R, CELL_H, 28]} />
-        <meshStandardMaterial color="#12233a" metalness={0.5} roughness={0.35} />
+        <cylinderGeometry args={[CELL_R, CELL_R, CELL_H, 32]} />
+        <meshStandardMaterial color="#0f172a" metalness={0.65} roughness={0.25} />
       </mesh>
-      <mesh position={[0, CELL_H / 2 + 0.02, 0]} onClick={(e) => { e.stopPropagation(); onSelect(index) }}>
-        <cylinderGeometry args={[0.32, 0.32, 0.06, 24]} />
-        <meshStandardMaterial color="#9fb4cc" metalness={0.85} roughness={0.22} />
+
+      {/* Terminal Cap */}
+      <mesh position={[0, CELL_H / 2 + 0.03, 0]} onClick={(e) => { e.stopPropagation(); onSelect(index) }}>
+        <cylinderGeometry args={[0.34, 0.34, 0.06, 24]} />
+        <meshStandardMaterial color="#cbd5e1" metalness={0.9} roughness={0.15} />
       </mesh>
-      <mesh ref={capRef} position={[0, CELL_H / 2 + 0.02, 0]}>
-        <cylinderGeometry args={[0.34, 0.34, 0.012, 24]} />
-        <meshStandardMaterial color="#0b1625" emissive="#34d399" emissiveIntensity={0.5} />
+
+      {/* LED Emissive Glow Indicator */}
+      <mesh ref={capRef} position={[0, CELL_H / 2 + 0.03, 0]}>
+        <cylinderGeometry args={[0.36, 0.36, 0.012, 24]} />
+        <meshStandardMaterial color="#020617" emissive="#34d399" emissiveIntensity={0.6} />
       </mesh>
-      <mesh ref={ringRef} position={[0, CELL_H / 2 + 0.06, 0]} rotation={[Math.PI / 2, 0, 0]}>
-        <torusGeometry args={[0.37, 0.028, 12, 32]} />
-        <meshStandardMaterial color="#0b1625" emissive="#34d399" emissiveIntensity={0.8} transparent opacity={0.85} />
+
+      {/* Outer Status Ring */}
+      <mesh ref={ringRef} position={[0, CELL_H / 2 + 0.07, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[0.39, 0.03, 12, 32]} />
+        <meshStandardMaterial color="#020617" emissive="#34d399" emissiveIntensity={0.85} transparent opacity={0.9} />
       </mesh>
+
+      {/* Cell Label Overlay */}
+      <Html position={[0, -CELL_H / 2 - 0.25, 0]} center distanceFactor={10} style={{ pointerEvents: 'none' }}>
+        <div className="rounded-md border border-line bg-background/90 px-2 py-0.5 text-[10px] font-black uppercase text-foreground shadow-sm">
+          CELL 0{index}
+        </div>
+      </Html>
     </group>
   )
 })
@@ -120,16 +127,15 @@ function EnergyFlow({ batteryId }: { batteryId: string }) {
   const meshRef = useRef<THREE.InstancedMesh>(null)
   const phases = useRef<number[]>(Array.from({ length: PARTICLE_COUNT }, (_, i) => i / PARTICLE_COUNT))
   const dirRef = useRef(1)
-  const colorRef = useRef(new THREE.Color('#22d3ee'))
+  const colorRef = useRef(new THREE.Color('#38bdf8'))
   const dummy = useMemo(() => new THREE.Object3D(), [])
   const reduced = useReducedMotion()
 
   const curve = useMemo(() => {
     const pts = [
-      new THREE.Vector3(-2.86, 1.75, 1.04), // terminal −
+      new THREE.Vector3(-2.45, 1.75, 0), // terminal −
       ...SERIES_ORDER.map((i) => CELL_POSITIONS[i].clone().setY(CELL_H + 0.14)),
-      new THREE.Vector3(-2.86, 0.1, -1.04), // terminal + (bottom)
-      new THREE.Vector3(-2.86, 0.1, 1.6), // behind the pack
+      new THREE.Vector3(2.45, 0.15, 0), // terminal +
     ]
     return new THREE.CatmullRomCurve3(pts, true)
   }, [])
@@ -160,25 +166,25 @@ function EnergyFlow({ batteryId }: { batteryId: string }) {
 
   return (
     <instancedMesh ref={meshRef} args={[undefined, undefined, PARTICLE_COUNT]} frustumCulled={false}>
-      <sphereGeometry args={[0.04, 8, 8]} />
+      <sphereGeometry args={[0.045, 8, 8]} />
       <meshBasicMaterial toneMapped={false} />
     </instancedMesh>
   )
 }
 
-// ————— Bus bars between cells —————
+// ————— Bus bars between 3 cells —————
 function BusBars() {
   const segments = useMemo(() => {
-    const pts = SERIES_ORDER.map((i) => CELL_POSITIONS[i].clone().setY(CELL_H + 0.06))
+    const pts = SERIES_ORDER.map((i) => CELL_POSITIONS[i].clone().setY(CELL_H + 0.07))
     const out: Array<{ a: THREE.Vector3; b: THREE.Vector3 }> = []
     for (let i = 0; i < pts.length - 1; i++) out.push({ a: pts[i], b: pts[i + 1] })
     out.push({
-      a: new THREE.Vector3(pts[0].x, pts[0].y, 1.04),
-      b: new THREE.Vector3(-2.86, 1.78, 1.04),
+      a: new THREE.Vector3(pts[0].x, pts[0].y, 0),
+      b: new THREE.Vector3(-2.3, 1.78, 0),
     })
     out.push({
-      a: new THREE.Vector3(pts[pts.length - 1].x, 0.12, -1.04),
-      b: new THREE.Vector3(-2.86, 0.12, -1.04),
+      a: new THREE.Vector3(pts[pts.length - 1].x, 0.15, 0),
+      b: new THREE.Vector3(2.3, 0.15, 0),
     })
     return out
   }, [])
@@ -193,7 +199,7 @@ function BusBars() {
         return (
           <mesh key={i} position={center} quaternion={quat}>
             <boxGeometry args={[0.16, len, 0.12]} />
-            <meshStandardMaterial color="#1e3350" metalness={0.85} roughness={0.3} />
+            <meshStandardMaterial color="#334155" metalness={0.85} roughness={0.25} />
           </mesh>
         )
       })}
@@ -212,14 +218,15 @@ function SocBar({ batteryId }: { batteryId: string }) {
       m.scale.y += (target - m.scale.y) * 0.05
     }
   })
-  return (      <group position={[3.12, 0, 0]}>
+  return (
+    <group position={[2.75, 0, 0]}>
       <mesh position={[0, 1.0, 0]}>
         <boxGeometry args={[0.2, 2.0, 0.2]} />
         <meshStandardMaterial color="#0e1a2a" metalness={0.6} roughness={0.4} />
       </mesh>
       <mesh ref={fillRef} position={[0, 0.14, 0]}>
         <boxGeometry args={[0.12, 1.88, 0.12]} />
-        <meshStandardMaterial color="#22d3ee" emissive="#22d3ee" emissiveIntensity={0.7} />
+        <meshStandardMaterial color="#38bdf8" emissive="#38bdf8" emissiveIntensity={0.7} />
       </mesh>
       <Html position={[0, 2.25, 0]} center distanceFactor={12} style={{ pointerEvents: 'none' }}>
         <div className="flex flex-col items-center">
@@ -301,7 +308,7 @@ function PackScene({ battery }: { battery: Battery }) {
     const focusPos = focusRef.current != null ? CELL_POSITIONS[focusRef.current - 1].clone().add(new THREE.Vector3(0, 0.15, 0.6)) : DEFAULT_TARGET
     targetPos.current.lerp(focusPos, k)
     c.target.copy(targetPos.current)
-    const desired = focusRef.current != null ? 5.2 : 9.2
+    const desired = focusRef.current != null ? 4.8 : 8.2
     const dir = state.camera.position.clone().sub(c.target)
     const dist = dir.length()
     dir.normalize()
@@ -312,45 +319,46 @@ function PackScene({ battery }: { battery: Battery }) {
 
   return (
     <>
-      <ambientLight intensity={0.95} />
-      <directionalLight position={[5, 8, 4]} intensity={1.35} />
-      <directionalLight position={[-6, 4, -5]} intensity={0.45} color="#ea580c" />
-      <pointLight position={[0, 4, -3]} intensity={0.6} color="#0284c7" />
-      <fog attach="fog" args={['#f8fafc', 12, 24]} />
+      <ambientLight intensity={1.1} />
+      <directionalLight position={[5, 8, 4]} intensity={1.4} />
+      <directionalLight position={[-6, 4, -5]} intensity={0.5} color="#38bdf8" />
+      <pointLight position={[0, 4, -3]} intensity={0.7} color="#34d399" />
+      <fog attach="fog" args={['#020617', 10, 22]} />
 
-      {/* ground disc */}
+      {/* Frosted ground disc */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 0]}>
         <circleGeometry args={[4.2, 48]} />
-        <meshStandardMaterial color="#e2e8f0" roughness={0.85} metalness={0.1} />
+        <meshStandardMaterial color="#0f172a" roughness={0.8} metalness={0.2} />
       </mesh>
 
-      {/* backdrop glow */}
+      {/* Backdrop cyan glow */}
       <sprite position={[0, 1.2, -2.6]} scale={[7, 4, 1]}>
         <spriteMaterial map={glowTexture} transparent opacity={0.35} depthWrite={false} />
       </sprite>
 
       <group>
-        {/* chassis */}
-        <mesh position={[0, 1.15, -1.22]}>
-          <boxGeometry args={[5.2, 2.3, 0.12]} />
-          <meshStandardMaterial color="#cbd5e1" metalness={0.4} roughness={0.45} />
+        {/* Sleek 3-Cell Chassis Base */}
+        <mesh position={[0, 1.15, -1.0]}>
+          <boxGeometry args={[4.4, 2.3, 0.12]} />
+          <meshStandardMaterial color="#1e293b" metalness={0.5} roughness={0.35} />
         </mesh>
         <mesh position={[0, -0.06, 0]}>
-          <boxGeometry args={[5.2, 0.12, 3.1]} />
-          <meshStandardMaterial color="#94a3b8" metalness={0.45} roughness={0.4} />
+          <boxGeometry args={[4.4, 0.12, 1.8]} />
+          <meshStandardMaterial color="#0f172a" metalness={0.55} roughness={0.3} />
         </mesh>
-        {[-2.6, 2.6].map((x) => (
+        {[-2.2, 2.2].map((x) => (
           <mesh key={x} position={[x, 1.05, 0]}>
-            <boxGeometry args={[0.14, 2.3, 3.1]} />
-            <meshStandardMaterial color="#94a3b8" metalness={0.45} roughness={0.4} />
+            <boxGeometry args={[0.14, 2.3, 1.8]} />
+            <meshStandardMaterial color="#1e293b" metalness={0.5} roughness={0.35} />
           </mesh>
         ))}
-        {/* terminals */}
-        <mesh position={[-2.9, 1.72, 1.04]}>
+
+        {/* Terminals */}
+        <mesh position={[-2.45, 1.72, 0]}>
           <boxGeometry args={[0.22, 0.5, 0.3]} />
           <meshStandardMaterial color="#475569" metalness={0.9} roughness={0.2} />
         </mesh>
-        <mesh position={[-2.9, 0.12, -1.04]}>
+        <mesh position={[2.45, 0.15, 0]}>
           <boxGeometry args={[0.22, 0.5, 0.3]} />
           <meshStandardMaterial color="#ea580c" metalness={0.9} roughness={0.2} />
         </mesh>
@@ -368,8 +376,8 @@ function PackScene({ battery }: { battery: Battery }) {
         ref={controlsRef}
         makeDefault
         enablePan={false}
-        minDistance={3.4}
-        maxDistance={12}
+        minDistance={3.0}
+        maxDistance={11}
         minPolarAngle={0.3}
         maxPolarAngle={1.35}
         enableDamping
@@ -383,7 +391,7 @@ export default function BatteryPack3D({ battery }: { battery: Battery }) {
   return (
     <Canvas
       dpr={[1, 2]}
-      camera={{ position: [5.6, 3.4, 6.8], fov: 42 }}
+      camera={{ position: [4.8, 3.2, 5.8], fov: 42 }}
       className="!absolute inset-0"
       gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
     >

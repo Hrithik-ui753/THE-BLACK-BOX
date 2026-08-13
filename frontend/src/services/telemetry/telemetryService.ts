@@ -156,7 +156,7 @@ class TelemetryService {
 
     const getCellStatus = (v: number): CellStatus => {
       if (v <= 2.5) return 'critical'
-      if (v < 3.2 || Math.abs(v - avgV) > 0.15) return 'warning'
+      if (v < 3.0 || Math.abs(v - avgV) > 0.35) return 'warning'
       return 'healthy'
     }
 
@@ -169,7 +169,7 @@ class TelemetryService {
       soc: 85.6,
       soh: 85.0,
       cycleCount: 250,
-      status: (c1 <= 2.5 || c2 <= 2.5 || c3 <= 2.5) ? 'critical' : (Math.abs(c1 - c2) > 0.2 || Math.abs(c2 - c3) > 0.2) ? 'warning' : 'healthy',
+      status: (c1 <= 2.5 || c2 <= 2.5 || c3 <= 2.5) ? 'critical' : (Math.abs(c1 - c2) > 0.4 || Math.abs(c2 - c3) > 0.4) ? 'warning' : 'healthy',
       chargeState: 'discharging',
       cells: [
         { index: 1, voltage: c1, temperature: temp, soc: 85.6, soh: 85.0, current: 0.3, status: getCellStatus(c1), deviation: Math.round((c1 - avgV) * 1000), risk: 0.05, gas: gas },
@@ -188,63 +188,77 @@ class TelemetryService {
     const predictions = data.predictions || {}
     const statusStr = (data.status || 'NORMAL').toUpperCase()
 
-    let packStatus: BatteryStatus = 'healthy'
-    if (statusStr === 'CRITICAL' || statusStr === 'ANOMALY') packStatus = 'critical'
-    else if (statusStr === 'WARNING') packStatus = 'warning'
-
     const c1 = Number(sensors.cell1_voltage_v || 3.799)
     const c2 = Number(sensors.cell2_voltage_v || 3.606)
     const c3 = Number(sensors.cell3_voltage_v || 3.425)
 
-    const avgV = (c1 + c2 + c3) / 3.0
+    const c1Removed = c1 <= 0.15 || data.cell1_status === 'CELL_REMOVED'
+    const c2Removed = c2 <= 0.15 || data.cell2_status === 'CELL_REMOVED'
+    const c3Removed = c3 <= 0.15 || data.cell3_status === 'CELL_REMOVED'
+
+    const presentVoltages = [c1, c2, c3].filter((v) => v > 0.15)
+    const presentCount = presentVoltages.length
+
+    let packStatus: BatteryStatus = 'healthy'
+    if (presentCount < 3 || statusStr === 'CRITICAL') packStatus = 'critical'
+    else if (statusStr === 'WARNING' || statusStr === 'ANOMALY') packStatus = 'warning'
+
+    const avgV = presentCount > 0 ? presentVoltages.reduce((a, b) => a + b, 0) / presentCount : 0
     const batteryTemp = Number(sensors.battery_temperature_c || 27.14)
     const gas = Number(sensors.gas_sensor_raw || 195)
 
-    const soc = Number(predictions.soc_percent ?? 85.0)
-    const soh = Number(predictions.soh_percent ?? 94.0)
+    const soc = predictions.soc_percent !== null && predictions.soc_percent !== undefined ? Number(predictions.soc_percent) : (presentCount > 0 ? 85.0 : null)
+    const soh = predictions.soh_percent !== null && predictions.soh_percent !== undefined ? Number(predictions.soh_percent) : (presentCount > 0 ? 94.0 : null)
 
-    const getCellStatus = (v: number): CellStatus => {
+    const getCellStatus = (v: number, isRemoved: boolean): CellStatus => {
+      if (isRemoved) return 'CELL_REMOVED'
       if (v <= 2.5) return 'critical'
-      if (v < 3.2 || Math.abs(v - avgV) > 0.15) return 'warning'
+      if (v < 3.0 || Math.abs(v - avgV) > 0.35) return 'warning'
       return 'healthy'
     }
+
+    const backendCells = data.cells || []
+    const getCellRisk = (st: CellStatus) => st === 'CELL_REMOVED' ? 0.99 : st === 'critical' ? 0.85 : st === 'warning' ? 0.25 : 0.05
 
     const cells = [
       {
         index: 1,
         voltage: c1,
         temperature: batteryTemp,
-        soc: soc,
-        soh: soh,
+        soc: c1Removed ? null : (backendCells[0]?.soc ?? soc),
+        soh: c1Removed ? null : (backendCells[0]?.soh ?? soh),
         current: Number(derived.estimated_current_a ?? 0.3),
-        status: getCellStatus(c1),
-        deviation: Math.round((c1 - avgV) * 1000),
-        risk: predictions.anomaly === 'normal' ? 0.05 : 0.85,
-        gas: gas
+        status: getCellStatus(c1, c1Removed),
+        deviation: c1Removed ? 0 : Math.round((c1 - avgV) * 1000),
+        risk: getCellRisk(getCellStatus(c1, c1Removed)),
+        gas: gas,
+        mlSkipped: c1Removed
       },
       {
         index: 2,
         voltage: c2,
         temperature: batteryTemp,
-        soc: soc,
-        soh: soh,
+        soc: c2Removed ? null : (backendCells[1]?.soc ?? soc),
+        soh: c2Removed ? null : (backendCells[1]?.soh ?? soh),
         current: Number(derived.estimated_current_a ?? 0.3),
-        status: getCellStatus(c2),
-        deviation: Math.round((c2 - avgV) * 1000),
-        risk: predictions.anomaly === 'normal' ? 0.05 : 0.85,
-        gas: gas
+        status: getCellStatus(c2, c2Removed),
+        deviation: c2Removed ? 0 : Math.round((c2 - avgV) * 1000),
+        risk: getCellRisk(getCellStatus(c2, c2Removed)),
+        gas: gas,
+        mlSkipped: c2Removed
       },
       {
         index: 3,
         voltage: c3,
         temperature: batteryTemp,
-        soc: soc,
-        soh: soh,
+        soc: c3Removed ? null : (backendCells[2]?.soc ?? soc),
+        soh: c3Removed ? null : (backendCells[2]?.soh ?? soh),
         current: Number(derived.estimated_current_a ?? 0.3),
-        status: getCellStatus(c3),
-        deviation: Math.round((c3 - avgV) * 1000),
-        risk: predictions.anomaly === 'normal' ? 0.05 : 0.85,
-        gas: gas
+        status: getCellStatus(c3, c3Removed),
+        deviation: c3Removed ? 0 : Math.round((c3 - avgV) * 1000),
+        risk: getCellRisk(getCellStatus(c3, c3Removed)),
+        gas: gas,
+        mlSkipped: c3Removed
       }
     ]
 
@@ -256,12 +270,14 @@ class TelemetryService {
       voltage: Number(sensors.total_voltage_v || (c1 + c2 + c3)),
       current: Number(derived.estimated_current_a ?? 0.3),
       temperature: batteryTemp,
-      soc: soc,
-      soh: soh,
+      soc: presentCount > 0 ? soc : null,
+      soh: presentCount > 0 ? soh : null,
       cycleCount: 250,
       status: packStatus,
       chargeState: 'discharging',
-      cells: cells
+      cells: cells,
+      presentCells: `${presentCount}/3`,
+      packPresenceStatus: presentCount === 3 ? 'ALL_PRESENT' : presentCount === 0 ? 'ALL_REMOVED' : 'CELL MISSING'
     }
   }
 
@@ -274,13 +290,21 @@ class TelemetryService {
     pack.cells.forEach((cell, i) => {
       const before = prev[i]
       if (before && cell.status !== before && cell.status !== 'healthy') {
+        const severityMap: Record<CellStatus, 'healthy' | 'warning' | 'critical'> = {
+          healthy: 'healthy',
+          warning: 'warning',
+          critical: 'critical',
+          CELL_REMOVED: 'warning'
+        }
         store.pushNotification({
           title: `${store.batteries.find((b) => b.id === pack.batteryId)?.name ?? 'Battery'} · Cell ${String(cell.index).padStart(2, '0')}`,
           body:
-            cell.status === 'critical'
+            cell.status === 'CELL_REMOVED'
+              ? `Cell ${cell.index} was PHYSICALLY REMOVED / DISCONNECTED (~0.07V). ML prediction skipped.`
+              : cell.status === 'critical'
               ? `Cell ${cell.index} is now CRITICAL — deviation ${fmtMv(cell.deviation)}, ${fmtTemp(cell.temperature)}.`
               : `Cell ${cell.index} entered warning — deviation ${fmtMv(cell.deviation)}, ${fmtTemp(cell.temperature)}.`,
-          severity: cell.status,
+          severity: severityMap[cell.status] ?? 'warning',
         })
       }
     })

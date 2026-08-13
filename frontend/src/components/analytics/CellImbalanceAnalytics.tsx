@@ -33,13 +33,13 @@ export function CellImbalanceAnalytics({
     let s = 'Healthy'
     let badge = 'bg-healthy/10 text-healthy border-healthy/30'
 
-    if (diff > 0.20) {
+    if (diff > 0.60) {
       s = 'CRITICAL'
       badge = 'bg-critical/10 text-critical border-critical/40'
-    } else if (diff > 0.10) {
+    } else if (diff > 0.30) {
       s = 'WARNING'
       badge = 'bg-warning/10 text-warning border-warning/40'
-    } else if (diff >= 0.05) {
+    } else if (diff >= 0.15) {
       s = 'WATCH'
       badge = 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30'
     }
@@ -48,10 +48,10 @@ export function CellImbalanceAnalytics({
   }, [cells])
 
   const thresholdScales = [
-    { label: '< 0.05 V', name: 'Healthy', style: 'border-healthy/40 text-healthy' },
-    { label: '0.05–0.10 V', name: 'Watch', style: 'border-cyan-500/40 text-cyan-400' },
-    { label: '0.10–0.20 V', name: 'Warning', style: 'border-warning/40 text-warning' },
-    { label: '> 0.20 V', name: 'Critical', style: 'border-critical/40 text-critical' },
+    { label: '< 0.15 V', name: 'Healthy', style: 'border-healthy/40 text-healthy' },
+    { label: '0.15–0.30 V', name: 'Watch', style: 'border-cyan-500/40 text-cyan-400' },
+    { label: '0.30–0.60 V', name: 'Warning', style: 'border-warning/40 text-warning' },
+    { label: '> 0.60 V', name: 'Critical', style: 'border-critical/40 text-critical' },
   ]
 
   // Default cell series if none provided

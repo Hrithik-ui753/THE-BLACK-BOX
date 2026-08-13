@@ -1,13 +1,24 @@
-import { AlertTriangle, ArrowDown, Flame, ShieldAlert } from 'lucide-react'
+import { AlertTriangle, ArrowDown, Calendar, Clock, Flame, ShieldAlert, Zap } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import type { PackTelemetry } from '@/types'
 
 export interface PredictiveFailureAnalysisProps {
   failureRiskScore?: number
+  pack?: PackTelemetry
+  soh?: number
+  rulCycles?: number
 }
 
 export function PredictiveFailureAnalysis({
-  failureRiskScore = 92,
+  failureRiskScore = 12,
+  pack,
+  soh = 94.2,
+  rulCycles = 235,
 }: PredictiveFailureAnalysisProps) {
+  const currentSoh = pack?.soh ?? soh ?? 94.2
+  const remainingCycles = rulCycles ?? Math.max(40, Math.round(currentSoh * 2.5))
+  // Estimated Days assuming standard 1 charge/discharge cycle per day
+  const estimatedDays = Math.round(remainingCycles * 1.0)
   const isHighRisk = failureRiskScore > 50
 
   const progressionSteps = isHighRisk
@@ -50,16 +61,16 @@ export function PredictiveFailureAnalysis({
             </span>
             <div>
               <CardTitle className="text-base font-black tracking-tight text-foreground">
-                5. 🔥 PREDICTIVE FAILURE ANALYSIS & CONSEQUENCE PROGRESSION
+                5. 🔥 PREDICTIVE FAILURE ANALYSIS & LIFESPAN FORECASTING
               </CardTitle>
-              <p className="text-xs text-muted">Predictive failure risk model & cascading degradation pathway</p>
+              <p className="text-xs text-muted">AI Failure Risk Model & Remaining Useful Days (RUL) Prediction</p>
             </div>
           </div>
 
           <div className={`flex items-center gap-2.5 rounded-2xl border px-4 py-2 font-black shadow-sm ${isHighRisk ? 'border-critical bg-critical/10 text-critical' : 'border-healthy bg-healthy/10 text-healthy'}`}>
             <ShieldAlert className="h-5 w-5" />
             <div>
-              <span className="block text-[9px] font-bold uppercase tracking-wider opacity-80">Failure Risk</span>
+              <span className="block text-[9px] font-bold uppercase tracking-wider opacity-80">Failure Risk Score</span>
               <span className="text-sm font-black tabular-nums">{failureRiskScore} / 100 — {isHighRisk ? 'HIGH RISK' : 'LOW RISK'}</span>
             </div>
           </div>
@@ -67,6 +78,50 @@ export function PredictiveFailureAnalysis({
       </CardHeader>
 
       <CardContent className="p-0 space-y-6">
+        {/* Estimated Operational Days & Lifespan Prediction Box */}
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div className="rounded-2xl border border-accent/40 bg-accent/10 p-4 shadow-sm">
+            <div className="flex items-center gap-2 text-accent font-black text-xs uppercase tracking-wider">
+              <Calendar className="h-4 w-4" />
+              <span>Predicted Operational Days</span>
+            </div>
+            <div className="mt-2 flex items-baseline gap-2">
+              <span className="text-3xl font-black text-foreground tabular-nums">~{estimatedDays}</span>
+              <span className="text-xs font-bold text-accent">Days Remaining</span>
+            </div>
+            <p className="mt-1 text-[10px] font-medium text-muted">
+              Estimated calendar life based on 1 cycle/day usage profile.
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-healthy/40 bg-healthy/10 p-4 shadow-sm">
+            <div className="flex items-center gap-2 text-healthy font-black text-xs uppercase tracking-wider">
+              <Clock className="h-4 w-4" />
+              <span>RUL Cycles to 80% EOL</span>
+            </div>
+            <div className="mt-2 flex items-baseline gap-2">
+              <span className="text-3xl font-black text-foreground tabular-nums">{remainingCycles}</span>
+              <span className="text-xs font-bold text-healthy">Cycles</span>
+            </div>
+            <p className="mt-1 text-[10px] font-medium text-muted">
+              Remaining charge/discharge cycles before reaching end-of-life.
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-line bg-background-2/80 p-4 shadow-sm">
+            <div className="flex items-center gap-2 text-foreground font-black text-xs uppercase tracking-wider">
+              <Zap className="h-4 w-4 text-warning" />
+              <span>Current Health (SOH)</span>
+            </div>
+            <div className="mt-2 flex items-baseline gap-2">
+              <span className="text-3xl font-black text-foreground tabular-nums">{currentSoh.toFixed(1)}%</span>
+              <span className="text-xs font-bold text-muted">Capacity</span>
+            </div>
+            <p className="mt-1 text-[10px] font-medium text-muted">
+              Optimal SOH trajectory. Minor age-related degradation.
+            </p>
+          </div>
+        </div>
         {/* Contributing Risk Factors List */}
         <div className={`rounded-2xl border p-4 ${isHighRisk ? 'border-critical/30 bg-critical/5' : 'border-healthy/30 bg-healthy/5'}`}>
           <span className={`block text-xs font-black uppercase tracking-wider mb-2 ${isHighRisk ? 'text-critical' : 'text-healthy'}`}>

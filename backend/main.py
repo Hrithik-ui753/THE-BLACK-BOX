@@ -37,6 +37,7 @@ logger = logging.getLogger("main")
 load_dotenv()
 
 # Initialize Firebase Admin SDK
+logger.info("[Startup] Initializing Firebase Admin SDK...")
 initialize_firebase()
 
 # Warm up ML models at startup
@@ -71,12 +72,19 @@ app.include_router(ai_router)
 app.include_router(supabase_router)
 
 
+from services.firebase_service import firebase_service
+
+
 async def background_firebase_polling_loop():
     """
     Non-blocking background worker loop:
     Polls Firebase Realtime Database every 2-5 seconds for new telemetry readings,
     calculates derived features, runs ML models, stores records in Supabase, and evaluates alerts.
     """
+    if not firebase_service.initialized:
+        logger.warning("[Background Task] Firebase Admin SDK is not initialized. Live RTDB polling suspended.")
+        return
+
     logger.info(f"[Background Task] Started live Firebase polling loop (Interval: {POLL_INTERVAL_SECONDS}s)...")
     while True:
         try:

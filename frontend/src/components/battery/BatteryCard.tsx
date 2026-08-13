@@ -4,7 +4,7 @@ import { ArrowRight, BatteryLow, Thermometer, Trash2, Zap } from 'lucide-react'
 import type { Battery, PackTelemetry } from '@/types'
 import { useAppStore } from '@/store/useAppStore'
 import { Badge } from '@/components/ui/badge'
-import { STATUS_COLOR, STATUS_LABEL } from '@/constants/status'
+import { BATTERY_STATUS_COLOR, STATUS_LABEL } from '@/constants/status'
 import { fmtPct, fmtTemp, fmtV } from '@/utils/format'
 import { ROUTES } from '@/constants/status'
 import { cn } from '@/utils/cn'
@@ -22,7 +22,7 @@ function MiniBattery({ soc }: { soc: number }) {
 export function BatteryCard({ battery, pack, index }: { battery: Battery; pack: PackTelemetry | undefined; index: number }) {
   const removeBattery = useAppStore((s) => s.removeBattery)
   const offline = battery.status === 'offline'
-  const statusColor = STATUS_COLOR[battery.status === 'offline' ? 'warning' : battery.status === 'critical' ? 'critical' : battery.status] ?? '#5d7390'
+  const statusColor = BATTERY_STATUS_COLOR[battery.status] ?? '#5d7390'
   const soh = pack?.soh ?? 90
 
   return (
@@ -85,31 +85,41 @@ export function BatteryCard({ battery, pack, index }: { battery: Battery; pack: 
         </div>
 
         {/* Option 2 Explicit 3-Cell Individual Voltage Breakdown */}
-        <div className="mt-3.5 rounded-xl border border-warning/30 bg-warning/5 p-2.5">
-          <div className="flex items-center justify-between text-[10px] font-extrabold uppercase text-warning">
+        <div className="mt-3.5 rounded-xl border border-line bg-background-2/70 p-2.5">
+          <div className="flex items-center justify-between text-[10px] font-extrabold uppercase text-muted">
             <span>3 Individual Cells Voltages</span>
-            <span>Sum = {pack ? pack.voltage.toFixed(2) : '10.75'} V</span>
+            <span>{pack?.presentCells ? `${pack.presentCells} Present` : '3/3 Present'}</span>
           </div>
           <div className="mt-2 grid grid-cols-3 gap-1.5 text-center text-xs font-black">
-            <div className="rounded-lg border border-healthy/40 bg-healthy/10 py-1 text-healthy">
-              <span className="block text-[8px] font-bold text-faint">Cell 01</span>
-              {pack?.cells?.[0] ? `${pack.cells[0].voltage.toFixed(2)}V` : '3.80V'}
-            </div>
-            <div className="rounded-lg border border-warning/40 bg-warning/10 py-1 text-warning">
-              <span className="block text-[8px] font-bold text-faint">Cell 02</span>
-              {pack?.cells?.[1] ? `${pack.cells[1].voltage.toFixed(2)}V` : '3.56V'}
-            </div>
-            <div className="rounded-lg border border-healthy/40 bg-healthy/10 py-1 text-healthy">
-              <span className="block text-[8px] font-bold text-faint">Cell 03</span>
-              {pack?.cells?.[2] ? `${pack.cells[2].voltage.toFixed(2)}V` : '3.39V'}
-            </div>
+            {[0, 1, 2].map((idx) => {
+              const cell = pack?.cells?.[idx]
+              const v = cell?.voltage ?? (idx === 0 ? 3.8 : idx === 1 ? 3.56 : 3.39)
+              const isRemoved = v <= 0.15 || cell?.status === 'CELL_REMOVED'
+              return (
+                <div
+                  key={idx}
+                  className={`rounded-lg border py-1 ${
+                    isRemoved
+                      ? 'border-amber-500/40 bg-amber-500/10 text-amber-400'
+                      : v <= 2.5
+                      ? 'border-critical/40 bg-critical/10 text-critical'
+                      : 'border-healthy/40 bg-healthy/10 text-healthy'
+                  }`}
+                >
+                  <span className="block text-[8px] font-bold text-faint">Cell 0{idx + 1}</span>
+                  {isRemoved ? 'REMOVED' : `${v.toFixed(2)}V`}
+                </div>
+              )
+            })}
           </div>
         </div>
 
         <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3.5">
           <div className="flex items-center gap-1.5 text-[11px] text-muted">
             <BatteryLow className="h-3.5 w-3.5" />
-            <span className="font-semibold tabular-nums text-accent-soft">{pack ? fmtPct(pack.soc, 0) : '85%'}</span>
+            <span className="font-semibold tabular-nums text-accent-soft">
+              {pack?.soc !== null && pack?.soc !== undefined ? fmtPct(pack.soc, 0) : '--'}
+            </span>
             <span className="text-faint">SOC</span>
           </div>
           <Badge variant={pack?.chargeState === 'charging' ? 'accent' : 'muted'} className="shrink-0">

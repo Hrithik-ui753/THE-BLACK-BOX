@@ -4,10 +4,11 @@ import { MetricDisplay } from './MetricDisplay'
 import { fmtAmp, fmtPct, fmtTemp, fmtV } from '@/utils/format'
 
 export function BatteryMetrics({ pack }: { pack: PackTelemetry }) {
+  const sohVal = pack.soh ?? 90
   return (
     <div className="grid grid-cols-3 gap-x-6 gap-y-4 sm:grid-cols-6">
-      <MetricDisplay label="SOH" value={fmtPct(pack.soh)} icon={Gauge} accent={pack.soh > 90 ? 'healthy' : pack.soh > 80 ? 'warning' : 'critical'} />
-      <MetricDisplay label="SOC" value={fmtPct(pack.soc)} icon={BatteryMedium} />
+      <MetricDisplay label="SOH" value={pack.soh !== null && pack.soh !== undefined ? fmtPct(pack.soh) : '--'} icon={Gauge} accent={sohVal > 90 ? 'healthy' : sohVal > 80 ? 'warning' : 'critical'} />
+      <MetricDisplay label="SOC" value={pack.soc !== null && pack.soc !== undefined ? fmtPct(pack.soc) : '--'} icon={BatteryMedium} />
       <MetricDisplay label="Pack Voltage" value={fmtV(pack.voltage)} icon={Zap} />
       <MetricDisplay
         label="Temperature"

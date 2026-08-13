@@ -65,6 +65,11 @@ class PredictionService:
         live_state = {
             "battery_id": battery_id,
             "timestamp": raw_ts,
+            "cell1_status": predictions.get("cell1_status", derived.get("cell1_status", "CELL_PRESENT")),
+            "cell2_status": predictions.get("cell2_status", derived.get("cell2_status", "CELL_PRESENT")),
+            "cell3_status": predictions.get("cell3_status", derived.get("cell3_status", "CELL_PRESENT")),
+            "present_cells": predictions.get("present_cells", derived.get("present_cells", "3/3")),
+            "pack_presence_status": derived.get("pack_presence_status", "ALL_PRESENT"),
             "sensors": {
                 "cell1_voltage_v": sensor_data["cell1_voltage_v"],
                 "cell2_voltage_v": sensor_data["cell2_voltage_v"],
@@ -74,6 +79,11 @@ class PredictionService:
                 "ambient_temperature_c": sensor_data["ambient_temperature_c"],
                 "gas_sensor_raw": sensor_data["gas_sensor_raw"],
             },
+            "cells": predictions.get("cells", [
+                {"index": 1, "voltage": sensor_data["cell1_voltage_v"], "status": derived.get("cell1_status", "CELL_PRESENT"), "soc": predictions["soc"], "soh": predictions["soh"], "ml_skipped": False},
+                {"index": 2, "voltage": sensor_data["cell2_voltage_v"], "status": derived.get("cell2_status", "CELL_PRESENT"), "soc": predictions["soc"], "soh": predictions["soh"], "ml_skipped": False},
+                {"index": 3, "voltage": sensor_data["cell3_voltage_v"], "status": derived.get("cell3_status", "CELL_PRESENT"), "soc": predictions["soc"], "soh": predictions["soh"], "ml_skipped": False},
+            ]),
             "derived": {
                 "min_cell_voltage_v": derived["min_cell_voltage_V"],
                 "max_cell_voltage_v": derived["max_cell_voltage_V"],
@@ -96,7 +106,7 @@ class PredictionService:
         }
 
         # 4. Store in Supabase
-        if supabase_db.is_connected():
+        if supabase_db.is_connected() and self.is_valid_timestamp(raw_ts) and raw_ts != self.last_processed_timestamp:
             try:
                 # sensor_history
                 sh_data = {

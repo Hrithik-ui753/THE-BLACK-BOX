@@ -2,7 +2,6 @@ import { useEffect, Suspense, lazy } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Activity, ArrowRight, BrainCircuit, Gauge, Radar, ShieldCheck, Box, Zap } from 'lucide-react'
-import { LandingAuthCard } from '@/components/auth/LandingAuthCard'
 import { usePack } from '@/hooks/usePack'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -98,8 +97,77 @@ export function Landing() {
               Interactive 3D battery Pack visualization with real-time cell voltage telemetry, cloud database synchronization, and predictive health analytics.
             </p>
             
-            {/* Embedded Auth Card - Login or Create Account with NO direct dashboard interaction */}
-            <LandingAuthCard className="mt-6 w-full max-w-md" />
+            {/* App Overview & Feature Showcase Grid */}
+            <div className="mt-6 space-y-4">
+              <div className="grid gap-3.5 sm:grid-cols-2">
+                <div className="rounded-2xl border border-line bg-white/90 p-4 shadow-sm backdrop-blur-sm transition-all hover:border-accent/40 hover:shadow-md">
+                  <div className="flex items-center gap-2.5">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-accent/10 text-accent font-black text-xs">
+                      ⚡
+                    </span>
+                    <h3 className="text-sm font-extrabold text-foreground">3-Cell Telemetry</h3>
+                  </div>
+                  <p className="mt-2 text-xs text-muted leading-relaxed">
+                    Real-time individual cell voltage monitoring (Cell 1, Cell 2, Cell 3) with live balance tracking.
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-line bg-white/90 p-4 shadow-sm backdrop-blur-sm transition-all hover:border-accent/40 hover:shadow-md">
+                  <div className="flex items-center gap-2.5">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-healthy/10 text-healthy font-black text-xs">
+                      🧠
+                    </span>
+                    <h3 className="text-sm font-extrabold text-foreground">AI Safety Pipeline</h3>
+                  </div>
+                  <p className="mt-2 text-xs text-muted leading-relaxed">
+                    Azure OpenAI diagnostic reasoning engine for root-cause safety analysis and anomaly isolation.
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-line bg-white/90 p-4 shadow-sm backdrop-blur-sm transition-all hover:border-accent/40 hover:shadow-md">
+                  <div className="flex items-center gap-2.5">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-warning/10 text-warning font-black text-xs">
+                      🔥
+                    </span>
+                    <h3 className="text-sm font-extrabold text-foreground">Thermal Risk Model</h3>
+                  </div>
+                  <p className="mt-2 text-xs text-muted leading-relaxed">
+                    Predictive thermal runaway hazard index, ambient temperature correlation, and degradation forecasting.
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-line bg-white/90 p-4 shadow-sm backdrop-blur-sm transition-all hover:border-accent/40 hover:shadow-md">
+                  <div className="flex items-center gap-2.5">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-500 font-black text-xs">
+                      📊
+                    </span>
+                    <h3 className="text-sm font-extrabold text-foreground">Cloud Database Sync</h3>
+                  </div>
+                  <p className="mt-2 text-xs text-muted leading-relaxed">
+                    Continuous Supabase database persistence, smart alert tracking, and automated email notifications.
+                  </p>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="pt-2 flex flex-wrap items-center gap-3">
+                <Button
+                  size="lg"
+                  onClick={() => navigate(ROUTES.login)}
+                  className="gap-2 font-extrabold text-sm shadow-md"
+                >
+                  Sign In to Access Dashboard <ArrowRight className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="lg"
+                  onClick={() => navigate(ROUTES.signup)}
+                  className="font-bold text-sm"
+                >
+                  Create Account
+                </Button>
+              </div>
+            </div>
 
             {/* Live Voltage HUD strip */}
             <div className="mt-8 flex flex-wrap items-center gap-4 rounded-2xl border border-line bg-white/90 p-4 shadow-sm backdrop-blur-sm">
@@ -120,7 +188,7 @@ export function Landing() {
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-wider text-faint">State of Charge</p>
                 <p className="text-base font-extrabold tabular-nums text-accent">
-                  {pack ? `${pack.soc.toFixed(1)}%` : '98.5%'}
+                  {pack?.soc !== null && pack?.soc !== undefined ? `${pack.soc.toFixed(1)}%` : '98.5%'}
                 </p>
               </div>
 
@@ -129,7 +197,7 @@ export function Landing() {
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-wider text-faint">State of Health</p>
                 <p className="text-base font-extrabold tabular-nums text-healthy">
-                  {pack ? `${pack.soh.toFixed(1)}%` : '98.4%'}
+                  {pack?.soh !== null && pack?.soh !== undefined ? `${pack.soh.toFixed(1)}%` : '98.4%'}
                 </p>
               </div>
             </div>

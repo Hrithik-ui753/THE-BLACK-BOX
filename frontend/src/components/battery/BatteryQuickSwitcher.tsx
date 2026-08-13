@@ -17,7 +17,8 @@ export function BatteryQuickSwitcher({ currentBatteryId }: { currentBatteryId?: 
       {batteries.map((b) => {
         const active = b.id === currentBatteryId
         const pack = telemetry[b.id]
-        const color = STATUS_COLOR[b.status === 'offline' ? 'warning' : b.status]
+        const statusKey = b.status === 'offline' || b.status === 'CELL_MISSING' ? 'warning' : b.status === 'critical' ? 'critical' : b.status
+        const color = STATUS_COLOR[statusKey] ?? '#f59e0b'
 
         return (
           <button
@@ -37,7 +38,7 @@ export function BatteryQuickSwitcher({ currentBatteryId }: { currentBatteryId?: 
             <span className="h-2 w-2 rounded-full status-dot-pulse" style={{ backgroundColor: color }} />
             <span>{b.name}</span>
             <span className="rounded-md bg-white/70 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-foreground dark:bg-slate-800/70">
-              {pack ? `${pack.soh.toFixed(0)}% SOH` : b.status === 'offline' ? 'OFFLINE' : '—'}
+              {pack?.soh !== null && pack?.soh !== undefined ? `${pack.soh.toFixed(0)}% SOH` : b.status === 'offline' ? 'OFFLINE' : '-- SOH'}
             </span>
           </button>
         )

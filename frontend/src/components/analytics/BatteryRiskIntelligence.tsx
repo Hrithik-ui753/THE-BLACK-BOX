@@ -42,9 +42,9 @@ export function BatteryRiskIntelligence({ pack, imbalanceV, anomalyScore, health
     },
     {
       label: 'State of Health (SOH)',
-      value: `${pack.soh.toFixed(1)}%`,
-      status: pack.soh >= 90 ? '🟢 Healthy' : pack.soh >= 80 ? '🟡 Degrading' : '🔴 Critical',
-      isSeverity: pack.soh < 85,
+      value: pack.soh !== null && pack.soh !== undefined ? `${pack.soh.toFixed(1)}%` : '--',
+      status: (pack.soh ?? 90) >= 90 ? '🟢 Healthy' : (pack.soh ?? 90) >= 80 ? '🟡 Degrading' : '🔴 Critical',
+      isSeverity: (pack.soh ?? 90) < 85,
     },
   ]
 

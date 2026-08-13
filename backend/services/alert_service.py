@@ -2,7 +2,7 @@ import logging
 from typing import Dict, Any, Optional
 
 from email_alert_service import email_service, sms_service, alert_tracker
-from config import DEFAULT_BATTERY_ID
+from config import DEFAULT_BATTERY_ID, CELL_ABSENT_THRESHOLD
 
 logger = logging.getLogger(__name__)
 
@@ -50,22 +50,22 @@ class AlertService:
         max_v = float(derived_features.get("max_cell_voltage_V", max(c1, c2, c3)))
         imbalance_v = float(derived_features.get("cell_voltage_imbalance_V", max_v - min_v))
 
-        soc_pct = float(predictions.get("soc", 85.0))
-        soh_pct = float(predictions.get("soh", 94.0))
+        soc_pct = float(predictions.get("soc") if predictions.get("soc") is not None else 85.0)
+        soh_pct = float(predictions.get("soh") if predictions.get("soh") is not None else 94.0)
         rul_cycles = predictions.get("rul_cycles", 180)
         anomaly = predictions.get("anomaly", "normal")
         status_str = predictions.get("system_status", "NORMAL")
 
         cells_list = [
-            {"index": 1, "voltage": c1, "temperature": temp_c, "status": "critical" if c1 <= 2.5 else "warning" if c1 < 3.2 else "healthy"},
-            {"index": 2, "voltage": c2, "temperature": temp_c, "status": "critical" if c2 <= 2.5 else "warning" if c2 < 3.2 else "healthy"},
-            {"index": 3, "voltage": c3, "temperature": temp_c, "status": "critical" if c3 <= 2.5 else "warning" if c3 < 3.2 else "healthy"},
+            {"index": 1, "voltage": c1, "temperature": temp_c, "status": "CELL_REMOVED" if c1 <= CELL_ABSENT_THRESHOLD else "critical" if c1 <= 2.5 else "warning" if c1 < 3.2 else "healthy"},
+            {"index": 2, "voltage": c2, "temperature": temp_c, "status": "CELL_REMOVED" if c2 <= CELL_ABSENT_THRESHOLD else "critical" if c2 <= 2.5 else "warning" if c2 < 3.2 else "healthy"},
+            {"index": 3, "voltage": c3, "temperature": temp_c, "status": "CELL_REMOVED" if c3 <= CELL_ABSENT_THRESHOLD else "critical" if c3 <= 2.5 else "warning" if c3 < 3.2 else "healthy"},
         ]
 
         # Determine Specific Issue & Action (Dead Battery 0V/0.07V & Removed Cell Differentiation)
-        zero_cells = [c for c in cells_list if c["voltage"] <= 0.50]
-        removed_cells = [c for c in cells_list if c["voltage"] <= 0.15]
-        is_entire_pack_dead = total_v <= 1.0 or (c1 <= 0.5 and c2 <= 0.5 and c3 <= 0.5)
+        removed_cells = [c for c in cells_list if c["voltage"] <= CELL_ABSENT_THRESHOLD]
+        zero_cells = [c for c in cells_list if CELL_ABSENT_THRESHOLD < c["voltage"] <= 0.50]
+        is_entire_pack_dead = total_v <= 1.0 or (c1 <= CELL_ABSENT_THRESHOLD and c2 <= CELL_ABSENT_THRESHOLD and c3 <= CELL_ABSENT_THRESHOLD)
         is_low_net_v = total_v < 7.5
 
         if is_entire_pack_dead:
@@ -90,17 +90,17 @@ class AlertService:
             detected_prob = f"⚠️ CRITICAL LOW VOLTAGE: Battery net pack voltage ({total_v:.2f} V < 7.5 V) is depleted."
             rec_action = "Connect pack to charger immediately and inspect cell balance."
             sms_msg = f"⚠️ THE BLACK BOX: Battery net voltage is {total_v:.2f}V (< 7.5V). Needs recharge!"
-        elif min_v < 2.80 or imbalance_v > 0.20 or temp_c > 55.0 or anomaly != "normal":
+        elif min_v <= 2.50 or imbalance_v >= 0.60 or temp_c > 55.0 or anomaly in ["critical_failure", "thermal_runaway"]:
             severity = "CRITICAL"
             weakest = min(cells_list, key=lambda c: c["voltage"])
-            detected_prob = f"Cell {weakest['index']} is at {min_v:.2f} V with pack imbalance {imbalance_v:.2f} V. Anomaly status: {anomaly}."
+            detected_prob = f"Cell {weakest['index']} is at {min_v:.2f} V with severe pack imbalance {imbalance_v:.2f} V. Anomaly status: {anomaly}."
             rec_action = f"Inspect Cell {weakest['index']}. Stop heavy discharge load immediately."
-            sms_msg = f"🚨 THE BLACK BOX ALERT: Cell {weakest['index']} at {min_v:.2f}V. Imbalance: {imbalance_v:.2f}V."
-        elif imbalance_v > 0.10 or temp_c > 45.0 or soh_pct < 80.0:
+            sms_msg = f"🚨 THE BLACK BOX ALERT: Cell {weakest['index']} at {min_v:.2f}V. Severe Imbalance: {imbalance_v:.2f}V."
+        elif min_v < 3.00 or imbalance_v >= 0.30 or temp_c > 45.0 or soh_pct < 80.0 or anomaly != "normal":
             severity = "WARNING"
             detected_prob = f"Cell imbalance elevated to {imbalance_v:.2f} V with temp {temp_c:.1f} °C."
-            rec_action = "Monitor pack balance and allow thermal equalization."
-            sms_msg = f"🟡 THE BLACK BOX WARNING: High cell imbalance ({imbalance_v:.2f}V) detected."
+            rec_action = "Monitor pack balance and allow thermal equalization on next charge."
+            sms_msg = f"🟡 THE BLACK BOX WARNING: Cell imbalance ({imbalance_v:.2f}V) detected."
         else:
             severity = "NORMAL"
             detected_prob = f"Battery pack operating normally at {total_v:.2f} V."
@@ -126,6 +126,14 @@ class AlertService:
             current_severity=severity,
             current_details=details
         )
+
+        # User Directive: Only dispatch alerts for REMOVED CELL or DEAD/DRAINED BATTERY (< 1.0V) or RECOVERY
+        is_realistic_hardware_alert = bool(removed_cells or zero_cells or is_entire_pack_dead or min_v <= 1.00)
+
+        if not is_realistic_hardware_alert and not force_send and reason != "RECOVERY":
+            alert_tracker.update_state(battery_id, details)
+            logger.info(f"[AlertService] Alert suppressed by hardware policy (only removed cell or dead battery <1.0V triggers alerts).")
+            return {"status": "suppressed", "reason": "NON_HARDWARE_ALERT_SUPPRESSED", "severity": severity}
 
         if not should_send and not force_send:
             alert_tracker.update_state(battery_id, details)

@@ -195,7 +195,7 @@ export function BatteryPack2D({
         <g>
           <rect x="30" y="215" width="510" height="34" rx="10" fill="#f8fafc" stroke="#e2e8f0" strokeWidth="1.5" />
           <text x="285" y="236" textAnchor="middle" fill="#334155" fontSize="11" fontWeight="800">
-            TOTAL PACK VOLTAGE: {pack ? pack.voltage.toFixed(2) : '12.30'} V · SOH: {pack ? pack.soh.toFixed(1) : '94.2'}% · SOC: {pack ? pack.soc.toFixed(0) : '85'}%
+            TOTAL PACK VOLTAGE: {pack ? pack.voltage.toFixed(2) : '12.30'} V · SOH: {pack?.soh !== null && pack?.soh !== undefined ? `${pack.soh.toFixed(1)}%` : '--'} · SOC: {pack?.soc !== null && pack?.soc !== undefined ? `${pack.soc.toFixed(0)}%` : '--'}
           </text>
         </g>
       </svg>

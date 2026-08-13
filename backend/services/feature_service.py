@@ -1,7 +1,7 @@
 import logging
 from typing import Dict, Any
 
-from config import DEFAULT_BATTERY_ID
+from config import DEFAULT_BATTERY_ID, CELL_ABSENT_THRESHOLD
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +26,7 @@ class FeatureService:
         """
         Takes raw validated sensor readings and calculates all derived features
         required by the SOC, SOH, RUL, and Anomaly ML models.
+        Includes deterministic cell presence validation layer before feature computation.
         """
         c1 = float(sensor_data.get("cell1_voltage_v", 3.799))
         c2 = float(sensor_data.get("cell2_voltage_v", 3.606))
@@ -36,20 +37,44 @@ class FeatureService:
         ambient_c = float(sensor_data.get("ambient_temperature_c", 27.14))
         gas_raw = float(sensor_data.get("gas_sensor_raw", 195.0))
 
-        # Basic Derived Cell Features
-        min_v = round(min(c1, c2, c3), 3)
-        max_v = round(max(c1, c2, c3), 3)
-        avg_v = round(pack_v / 3.0, 3)
-        imbalance_v = round(max_v - min_v, 3)
+        # Deterministic Cell Presence Validation Layer
+        cell1_status = "CELL_REMOVED" if c1 <= CELL_ABSENT_THRESHOLD else "CELL_PRESENT"
+        cell2_status = "CELL_REMOVED" if c2 <= CELL_ABSENT_THRESHOLD else "CELL_PRESENT"
+        cell3_status = "CELL_REMOVED" if c3 <= CELL_ABSENT_THRESHOLD else "CELL_PRESENT"
+
+        present_voltages = [v for v in [c1, c2, c3] if v > CELL_ABSENT_THRESHOLD]
+        present_count = len(present_voltages)
+
+        if present_count == 3:
+            pack_presence_status = "ALL_PRESENT"
+        elif present_count == 0:
+            pack_presence_status = "ALL_REMOVED"
+        else:
+            pack_presence_status = "CELL MISSING"
+
+        # Prevent removed cell sensor offset (e.g. 0.07 V) from contaminating pack-level metrics
+        if present_count > 0:
+            min_v = round(min(present_voltages), 3)
+            max_v = round(max(present_voltages), 3)
+            avg_v = round(sum(present_voltages) / float(present_count), 3)
+            imbalance_v = round(max_v - min_v, 3) if present_count >= 2 else 0.0
+            valid_pack_v = round(sum(present_voltages), 3)
+        else:
+            min_v = 0.0
+            max_v = 0.0
+            avg_v = 0.0
+            imbalance_v = 0.0
+            valid_pack_v = 0.0
+
         temp_rise = round(max(0.0, temp_c - ambient_c), 2)
 
         # Estimated Current (Measured current is null because hardware lacks current sensor)
         measured_current_a = None
-        estimated_current_a = estimate_current(pack_v)
+        estimated_current_a = estimate_current(valid_pack_v if present_count > 0 else pack_v)
 
         capacity_ah = 2.8
         avg_c_rate = round(estimated_current_a / capacity_ah, 4)
-        power_avg_w = round(pack_v * estimated_current_a, 3)
+        power_avg_w = round(valid_pack_v * estimated_current_a, 3)
 
         high_current_burst = 1 if estimated_current_a >= 0.4 else 0
         discharge_depth_pct = 60.0
@@ -63,11 +88,20 @@ class FeatureService:
             "cycle_id": 250,
             "usage_profile": "light",
 
+            # Cell Presence Metadata
+            "cell1_status": cell1_status,
+            "cell2_status": cell2_status,
+            "cell3_status": cell3_status,
+            "present_cells": f"{present_count}/3",
+            "present_cells_count": present_count,
+            "pack_presence_status": pack_presence_status,
+
             # Cell & Pack Voltages
             "cell1_voltage_V": c1,
             "cell2_voltage_V": c2,
             "cell3_voltage_V": c3,
             "pack_voltage_V": pack_v,
+            "valid_pack_voltage_V": valid_pack_v,
             "voltage_avg_V": avg_v,
             "min_cell_voltage_V": min_v,
             "max_cell_voltage_V": max_v,
@@ -98,6 +132,8 @@ class FeatureService:
             "internal_resistance_proxy_ohm": internal_resistance,
             "capacity_Ah": capacity_ah,
         }
+
+        return features
 
         return features
 

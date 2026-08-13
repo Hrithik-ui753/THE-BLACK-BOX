@@ -38,14 +38,14 @@ function buildReports(): Report[] {
       status: p1?.status ?? 'healthy',
       findings: p1
         ? [
-            `State of Health at ${fmtPct(p1.soh)} across ${p1.cycleCount} full discharge cycles.`,
+            `State of Health at ${p1.soh !== null && p1.soh !== undefined ? fmtPct(p1.soh) : '--'} across ${p1.cycleCount} full discharge cycles.`,
             `Pack voltage steady at ${fmtV(p1.voltage)} with live cell voltages (C1: ${fmtV(p1.cells[0]?.voltage ?? 3.8)}, C2: ${fmtV(p1.cells[1]?.voltage ?? 3.6)}, C3: ${fmtV(p1.cells[2]?.voltage ?? 3.4)}).`,
             `Pack temperature at ${fmtTemp(p1.temperature)} with gas raw index ${p1.cells[0]?.gas ?? 195}.`,
           ]
         : ['Telemetry connecting.'],
       metrics: {
-        SOH: fmtPct(p1?.soh ?? 94.2),
-        SOC: fmtPct(p1?.soc ?? 85.0),
+        SOH: p1?.soh !== null && p1?.soh !== undefined ? fmtPct(p1.soh) : '--',
+        SOC: p1?.soc !== null && p1?.soc !== undefined ? fmtPct(p1.soc) : '--',
         Voltage: fmtV(p1?.voltage ?? 10.75),
         Temperature: fmtTemp(p1?.temperature ?? 27.14),
         'Cycle Count': `${p1?.cycleCount ?? 250}`,
@@ -106,7 +106,7 @@ function buildReports(): Report[] {
         if (!p1) return { 'Current SOH': '94.2%', 'Predicted 90d SOH': '92.1%', Risk: 'LOW (4%)' }
         const pred = predictHealth(p1)
         return {
-          'Current SOH': fmtPct(p1.soh),
+          'Current SOH': p1.soh !== null && p1.soh !== undefined ? fmtPct(p1.soh) : '--',
           'Predicted 90d SOH': fmtPct(pred.predictedSoh),
           'Failure Risk': String(pred.failureRisk),
           'Risk Score': fmtPct(pred.failureRiskPct, 0),

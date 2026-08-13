@@ -28,9 +28,10 @@ interface SimBattery {
   cells: SimCell[]
 }
 
-function deriveCellStatus(deviationMv: number, temp: number, gas: number): CellStatus {
-  if (Math.abs(deviationMv) > 80 || temp > 36 || gas > 30) return 'critical'
-  if (Math.abs(deviationMv) > 28 || temp > 32.5 || gas > 8) return 'warning'
+function deriveCellStatus(voltage: number, temp: number): CellStatus {
+  if (voltage <= 0.15) return 'CELL_REMOVED'
+  if (voltage <= 2.50 || temp > 55) return 'critical'
+  if (voltage < 3.00 || temp > 45) return 'warning'
   return 'healthy'
 }
 
@@ -42,14 +43,21 @@ function derivePackStatus(cells: CellTelemetry[]): BatteryStatus {
 
 function buildCell(index: number, c: SimCell, avgV: number): CellTelemetry {
   const deviation = (c.v - avgV) * 1000
-  const risk = clamp(0.02 + Math.abs(deviation) / 260 + Math.max(0, c.t - 33) * 0.012 + (c.gas / 100) * 0.28, 0, 0.97)
-  const status = deriveCellStatus(deviation, c.t, c.gas)
+  const status = deriveCellStatus(c.v, c.t)
+  
+  // Calibrated accurate risk score
+  let risk = 0.04
+  if (status === 'CELL_REMOVED') risk = 0.99
+  else if (status === 'critical') risk = 0.85
+  else if (status === 'warning') risk = 0.25
+  else risk = clamp(0.04 + (c.t > 35 ? (c.t - 35) * 0.01 : 0), 0.03, 0.08)
+
   return {
     index: index + 1,
     voltage: round(c.v),
     temperature: round(c.t, 1),
     soc: round(clamp(c.v / 4.2, 0.15, 1) * 100, 1),
-    soh: 100,
+    soh: 94.2,
     current: 0,
     status,
     deviation: round(deviation, 1),

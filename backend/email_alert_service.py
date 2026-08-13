@@ -132,7 +132,8 @@ class SmsAlertService:
             print(f"[SmsAlertService] [OK] SMS alert successfully dispatched! SID: {msg.sid}")
             return True
         except Exception as e:
-            print(f"[SmsAlertService] [ERROR] Twilio SMS Error: {e}")
+            err_msg = str(e).split("\n")[0]
+            print(f"[SmsAlertService] Twilio SMS alert skipped: {err_msg}")
             return False
 
 

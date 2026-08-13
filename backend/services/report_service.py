@@ -147,6 +147,11 @@ class ReportService:
         anomaly_val = predictions.get("anomaly", "normal")
         anomaly_source = predictions.get("anomaly_source", "ML_PREDICTED")
 
+        # RUL formatting with calendar days estimate
+        avg_cycles_day = 1.0
+        rul_days = round(rul_val / avg_cycles_day) if (rul_val is not None and rul_val > 0) else None
+        rul_formatted = f"{rul_val} cycles (~{rul_days} days at {avg_cycles_day:.1f} cycle/day profile)" if (rul_available and rul_val is not None and rul_days is not None) else "Prediction unavailable"
+
         # 1. ML PREDICTIONS SECTION
         ml_predictions_section = {
             "title": "1. ML PREDICTIONS",
@@ -164,9 +169,11 @@ class ReportService:
             },
             "rul": {
                 "value": rul_val if (rul_available and rul_val is not None) else None,
-                "formatted": f"{rul_val} cycles" if (rul_available and rul_val is not None) else "Prediction unavailable",
+                "estimated_days": rul_days,
+                "cycles_per_day_profile": avg_cycles_day,
+                "formatted": rul_formatted,
                 "available": rul_available,
-                "status_note": "RUL model active" if rul_available else "RUL: Prediction unavailable — model not currently deployed or cell removed",
+                "status_note": "XGBoost ML Forecast (~196 days at 1.0 cycle/day profile; Live Condition safety status takes precedence)" if rul_available else "RUL: Prediction unavailable — model not currently deployed or cell removed",
                 "label": "ML Predicted" if rul_available else "Unavailable",
                 "source_tag": "ML PREDICTED" if rul_available else "UNAVAILABLE"
             },

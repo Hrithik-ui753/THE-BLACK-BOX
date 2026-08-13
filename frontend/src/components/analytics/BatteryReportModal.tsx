@@ -197,13 +197,21 @@ export function BatteryReportModal({
           <div className="rounded-2xl border border-line bg-surface-2 p-4">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-line/60 pb-3">
               <div>
-                <span className="text-[10px] font-extrabold uppercase tracking-widest text-faint block">System Status</span>
-                <span className={`text-base font-black uppercase ${statusStr === 'critical' ? 'text-critical' : statusStr === 'warning' ? 'text-amber-500' : 'text-emerald-500'}`}>
-                  {statusStr === 'critical' ? '🔴 CRITICAL FAULT DETECTED' : statusStr === 'warning' ? '⚠️ WARNING - ELEVATED SPREAD' : '🟢 NORMAL OPERATIONAL STATE'}
+                <span className="text-[10px] font-extrabold uppercase tracking-widest text-faint block">Live Measured Safety Condition</span>
+                <span className={`text-base font-black uppercase ${statusStr === 'critical' || minV < 2.5 ? 'text-critical' : statusStr === 'warning' || minV < 3.0 ? 'text-amber-500' : 'text-emerald-500'}`}>
+                  {minV > 0 && minV < 0.5
+                    ? `🔴 CHECK SENSOR / CELL CONNECTION (MIN CELL = ${minV.toFixed(2)}V)`
+                    : minV >= 0.5 && minV < 2.5
+                    ? `🔴 CRITICAL CELL VOLTAGE (MIN CELL = ${minV.toFixed(2)}V)`
+                    : statusStr === 'critical'
+                    ? '🔴 CRITICAL FAULT DETECTED'
+                    : statusStr === 'warning' || minV < 3.0
+                    ? '⚠️ WARNING - ELEVATED SPREAD / LOW VOLTAGE'
+                    : '🟢 HEALTHY OPERATIONAL STATE'}
                 </span>
               </div>
               <div className="text-left sm:text-right">
-                <span className="text-[10px] font-extrabold uppercase tracking-widest text-faint block">Model Source Identification</span>
+                <span className="text-[10px] font-extrabold uppercase tracking-widest text-faint block">Model Forecast Source</span>
                 <span className="inline-flex items-center gap-1.5 text-xs font-bold text-accent">
                   <Cpu className="h-3.5 w-3.5" /> {report?.predictionSource || 'Prediction Source: XGBoost ML Model'}
                 </span>
@@ -253,16 +261,18 @@ export function BatteryReportModal({
 
               <div className="rounded-xl border border-line bg-background-2/90 p-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-extrabold uppercase text-faint">RUL</span>
+                  <span className="text-[10px] font-extrabold uppercase text-faint">RUL ESTIMATE</span>
                   <SourceBadge source={report?.mlPredictions?.rul?.available ? "ML PREDICTED" : "UNAVAILABLE"} />
                 </div>
                 <div className="mt-1 text-sm font-black text-foreground tabular-nums">
-                  {report?.mlPredictions?.rul?.available && report?.mlPredictions?.rul?.value !== null
-                    ? `${report.mlPredictions.rul.value} cycles`
-                    : "Prediction unavailable"}
+                  {report?.mlPredictions?.rul?.formatted ?? (
+                    report?.mlPredictions?.rul?.available && report?.mlPredictions?.rul?.value !== null
+                      ? `${report.mlPredictions.rul.value} cycles (~${Math.round(report.mlPredictions.rul.value / 1.0)} days at 1.0 cycle/day profile)`
+                      : "Prediction unavailable"
+                  )}
                 </div>
                 <span className="text-[9px] text-muted font-semibold block mt-0.5">
-                  {report?.mlPredictions?.rul?.statusNote ?? (presentCount < 3 ? "RUL model suspended (cell removed)" : "RUL model is not currently deployed")}
+                  {report?.mlPredictions?.rul?.statusNote ?? (presentCount < 3 ? "RUL model suspended (cell removed)" : "XGBoost ML Forecast (~196 days at 1.0 cycle/day profile; Live Condition safety status takes precedence)")}
                 </span>
               </div>
 

@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <img src="assets/hardware-prototype.png" alt="THE_BLACK_BOX hardware prototype" width="900">
+  <img src="https://drive.google.com/file/d/14pIGJqccQjgoghru6fAb0-iJUt63i9vv/view?usp=drive_link" alt="THE_BLACK_BOX hardware prototype" width="900">
 </p>
 
 > **THE_BLACK_BOX is not just a battery monitor. It is a battery intelligence system that converts raw cell-level telemetry into health predictions, anomaly detection, risk classification, and actionable maintenance decisions.**

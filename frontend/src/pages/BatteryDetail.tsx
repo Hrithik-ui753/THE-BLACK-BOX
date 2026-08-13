@@ -152,9 +152,9 @@ export function BatteryDetail() {
       )}
 
       {/* visualization — the hero */}
-      <div className="relative mt-4 min-h-[420px] flex-1 overflow-hidden rounded-2xl border border-line bg-background-2">
+      <div className="relative mt-5 min-h-[440px] flex-1 overflow-hidden rounded-2xl border border-line bg-background-2 shadow-sm">
         <div className="grid-bg pointer-events-none absolute inset-0" aria-hidden="true" />
-        <div className="absolute left-4 top-3 z-10 flex items-center gap-2 rounded-full border border-line bg-surface/90 px-3 py-1.5 shadow-sm backdrop-blur-md">
+        <div className="absolute left-4 top-3 z-10 flex items-center gap-2 rounded-full border border-line bg-surface/90 px-3.5 py-1.5 shadow-sm backdrop-blur-md">
           <span className={cn('h-2 w-2 rounded-full', battery.status === 'offline' ? 'bg-faint' : 'bg-healthy status-dot-pulse')} />
           <span className="text-[10px] font-extrabold uppercase tracking-wider text-foreground">
             {battery.status === 'offline' ? 'Offline · Disconnected' : `Live ${viewMode.toUpperCase()} Pack Visualization`}
@@ -173,32 +173,33 @@ export function BatteryDetail() {
             />
           </motion.div>
         )}
-
-        {/* pack AI insight strip */}
-        {packInsight && (
-          <motion.button
-            type="button"
-            onClick={() => setChatOpen(true)}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3, duration: 0.3 }}
-            className="absolute bottom-3 left-1/2 z-10 flex w-[calc(100%-1.5rem)] max-w-xl -translate-x-1/2 items-center gap-3 rounded-xl border border-accent/25 bg-surface/90 px-4 py-3 text-left shadow-panel backdrop-blur-md transition-colors hover:border-accent/50"
-          >
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-accent/30 bg-accent/10">
-              <Bot className="h-4 w-4 text-accent" />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-[10px] font-bold uppercase tracking-[0.14em] text-accent-soft">AI Insight</span>
-              <span className="mt-0.5 block truncate text-xs text-muted">{packInsight.headline}</span>
-            </span>
-            <ChevronRight className="h-4 w-4 shrink-0 text-accent" />
-          </motion.button>
-        )}
       </div>
 
-      <p className="mt-2 text-center text-[10px] text-faint">
-        Click a cell to inspect it · drag to rotate · scroll to zoom
+      {/* Instruction text with distance from visualization box */}
+      <p className="mt-4 mb-2 text-center text-xs font-medium text-muted">
+        Click a cell to inspect details · Drag to rotate 3D view · Scroll to zoom
       </p>
+
+      {/* pack AI insight strip box below visualization with clear separation */}
+      {packInsight && (
+        <motion.button
+          type="button"
+          onClick={() => setChatOpen(true)}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2, duration: 0.3 }}
+          className="mt-3 mb-8 flex w-full items-center gap-3.5 rounded-xl border border-accent/30 bg-surface/95 px-5 py-3.5 text-left shadow-md transition-all hover:border-accent/60 hover:bg-surface-2/80"
+        >
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-accent/30 bg-accent/10">
+            <Bot className="h-4 w-4 text-accent" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[10px] font-bold uppercase tracking-[0.14em] text-accent-soft">AI Pack Health Insight</span>
+            <span className="mt-0.5 block truncate text-xs font-semibold text-foreground">{packInsight.headline}</span>
+          </span>
+          <ChevronRight className="h-4 w-4 shrink-0 text-accent" />
+        </motion.button>
+      )}
 
       {pack && (
         <CellDetailPanel battery={battery} pack={pack} cellIndex={selectedCell} onClose={() => selectCell(null)} />

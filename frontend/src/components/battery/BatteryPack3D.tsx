@@ -177,15 +177,18 @@ const Cell = memo(function Cell({
       </mesh>
 
       {/* Dynamic 3D Html Overlay Readout */}
-      <Html position={[0, -CELL_H / 2 - 0.35, 0]} center distanceFactor={9} style={{ pointerEvents: 'none' }}>
-        <div className={`flex flex-col items-center rounded-lg border px-2.5 py-1 backdrop-blur-md shadow-md text-center ${statusBg}`}>
-          <div className="text-[10px] font-black tracking-wider uppercase">
-            CELL 0{index}
+      <Html position={[0, CELL_H / 2 + 0.5, 0]} center distanceFactor={8} style={{ pointerEvents: 'none', zIndex: 10 }}>
+        <div className={`flex flex-col items-center rounded-xl border px-3 py-1.5 backdrop-blur-md shadow-lg text-center min-w-[76px] transition-all ${statusBg}`}>
+          <div className="flex items-center gap-1">
+            <span className={`h-1.5 w-1.5 rounded-full status-dot-pulse ${cellInfo.status === 'healthy' ? 'bg-emerald-400' : cellInfo.status === 'warning' ? 'bg-amber-400' : cellInfo.status === 'critical' ? 'bg-red-400' : 'bg-slate-400'}`} />
+            <span className="text-[10px] font-black tracking-wider uppercase">
+              CELL 0{index}
+            </span>
           </div>
-          <div className="text-xs font-black tabular-nums">
+          <div className="text-xs font-black tabular-nums tracking-tight mt-0.5">
             {cellInfo.status === 'CELL_REMOVED' ? 'REMOVED' : `${cellInfo.voltage.toFixed(2)} V`}
           </div>
-          <div className="text-[9px] font-medium opacity-80">
+          <div className="text-[9px] font-bold opacity-85 mt-0.5">
             {cellInfo.temperature.toFixed(1)}°C
           </div>
         </div>

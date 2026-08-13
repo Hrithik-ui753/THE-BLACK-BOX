@@ -34,7 +34,7 @@ export function BatteryPack2D({
   return (
     <div className={cn('flex flex-col items-center justify-center p-4 w-full h-full', className)}>
       {/* Mode Status Header Pill */}
-      <div className="mb-3 flex items-center justify-between w-full max-w-[620px] rounded-xl border border-line bg-surface/80 px-4 py-2 text-xs backdrop-blur-sm">
+      <div className="mt-8 mb-3 flex items-center justify-between w-full max-w-[620px] rounded-xl border border-line bg-surface/90 px-4 py-2.5 text-xs backdrop-blur-md shadow-sm z-10">
         <span className="flex items-center gap-2 font-bold text-foreground">
           <span className={`h-2.5 w-2.5 rounded-full status-dot-pulse ${isIntegratedMode ? 'bg-accent' : 'bg-warning'}`} />
           {isIntegratedMode ? 'Option 1: 3-Cell Integrated Lithium Pack (3S Unit)' : 'Option 2: 3 Individual Cells Module'}
@@ -77,8 +77,8 @@ export function BatteryPack2D({
         {isIntegratedMode && (
           <g>
             <rect x="30" y="32" width="510" height="34" rx="10" fill="#f0f9ff" stroke="#e0f2fe" strokeWidth="1.5" />
-            <text x="285" y="53" textAnchor="middle" fill="#0369a1" fontSize="11" fontWeight="800" letterSpacing="0.1em">
-              UNIFIED 3S INTEGRATED LITHIUM PACK (CELL 1 + CELL 2 + CELL 3 = PACK VOLTAGE)
+            <text x="285" y="53" textAnchor="middle" fill="#0369a1" fontSize="10" fontWeight="800" letterSpacing="0.04em">
+              UNIFIED 3S INTEGRATED PACK · (CELL 1 + CELL 2 + CELL 3 = PACK VOLTAGE)
             </text>
           </g>
         )}
@@ -87,8 +87,8 @@ export function BatteryPack2D({
         {!isIntegratedMode && (
           <g>
             <rect x="30" y="32" width="510" height="34" rx="10" fill="#fff7ed" stroke="#ffedd5" strokeWidth="1.5" />
-            <text x="285" y="53" textAnchor="middle" fill="#c2410c" fontSize="11" fontWeight="800" letterSpacing="0.1em">
-              3 INDIVIDUAL MODULAR CELLS MODULE (INDIVIDUAL CELL VOLTAGES SUM TO PACK VOLTAGE)
+            <text x="285" y="53" textAnchor="middle" fill="#c2410c" fontSize="10" fontWeight="800" letterSpacing="0.04em">
+              3 INDIVIDUAL CELL MODULES · (CELL VOLTAGES SUM TO PACK VOLTAGE)
             </text>
           </g>
         )}
@@ -154,18 +154,18 @@ export function BatteryPack2D({
                 stroke={color}
                 strokeWidth="1.5"
               />
-              <circle cx={cx(i) - 28} cy={cy() - 32} r="4" fill={color} className="status-dot-pulse" />
-              <text x={cx(i) + 8} y={cy() - 28} textAnchor="middle" fill="#1e293b" fontSize="10" fontWeight="800" letterSpacing="0.06em">
+              <circle cx={cx(i) - 24} cy={cy() - 32} r="3.5" fill={color} className="status-dot-pulse" />
+              <text x={cx(i) + 6} y={cy() - 28} textAnchor="middle" fill="#1e293b" fontSize="10" fontWeight="800" letterSpacing="0.05em">
                 CELL {String(index).padStart(2, '0')}
               </text>
 
               {/* Live Voltage Readout */}
-              <text x={cx(i)} y={cy() + 4} textAnchor="middle" fontSize="18" fontWeight="900" fill="#0f172a" className="tabular-nums">
+              <text x={cx(i)} y={cy() + 6} textAnchor="middle" fontSize="17" fontWeight="900" fill="#0f172a" className="tabular-nums">
                 {cell ? fmtV(cell.voltage) : (i === 0 ? '4.12 V' : i === 1 ? (isIntegratedMode ? '4.08 V' : '3.65 V') : '4.10 V')}
               </text>
 
               {/* Temp readout */}
-              <text x={cx(i)} y={cy() + 26} textAnchor="middle" fontSize="11" fontWeight="700" fill="#64748b">
+              <text x={cx(i)} y={cy() + 27} textAnchor="middle" fontSize="10" fontWeight="700" fill="#64748b">
                 {cell ? `${cell.temperature.toFixed(1)}°C` : '35.4°C'}
               </text>
 
@@ -194,7 +194,7 @@ export function BatteryPack2D({
         {/* Total Pack Sum Indicator Footer */}
         <g>
           <rect x="30" y="215" width="510" height="34" rx="10" fill="#f8fafc" stroke="#e2e8f0" strokeWidth="1.5" />
-          <text x="285" y="236" textAnchor="middle" fill="#334155" fontSize="11" fontWeight="800">
+          <text x="285" y="236" textAnchor="middle" fill="#334155" fontSize="10" fontWeight="800" letterSpacing="0.03em">
             TOTAL PACK VOLTAGE: {pack ? pack.voltage.toFixed(2) : '12.30'} V · SOH: {pack?.soh !== null && pack?.soh !== undefined ? `${pack.soh.toFixed(1)}%` : '--'} · SOC: {pack?.soc !== null && pack?.soc !== undefined ? `${pack.soc.toFixed(0)}%` : '--'}
           </text>
         </g>

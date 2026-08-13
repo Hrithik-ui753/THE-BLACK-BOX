@@ -1,8 +1,8 @@
 import os
 import pandas as pd
 
+import xgboost as xgb
 from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 import joblib
 
@@ -111,11 +111,10 @@ print(f"Testing samples : {len(X_test)}")
 # CREATE MODEL
 # ============================================================
 
-model = RandomForestRegressor(
+model = xgb.XGBRegressor(
     n_estimators=300,
-    max_depth=None,
-    min_samples_split=2,
-    min_samples_leaf=1,
+    max_depth=6,
+    learning_rate=0.05,
     random_state=42,
     n_jobs=-1
 )
@@ -125,7 +124,7 @@ model = RandomForestRegressor(
 # TRAIN
 # ============================================================
 
-print("\nTraining Random Forest SOC model...")
+print("\nTraining XGBoost SOC model...")
 
 model.fit(X_train, y_train)
 

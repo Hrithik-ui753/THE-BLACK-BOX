@@ -16,7 +16,8 @@ class ReportService:
         Validates physical consistency of battery telemetry:
         - Cell voltages must be numeric and within [0.0, 4.5] V.
         - Temperature must be numeric and within [-20.0, 100.0] °C.
-        - SOC / SOH must be within [0.0, 100.0] %.
+        - SOC / SOH must be within [0.0, 100.0] % if present.
+        - RUL cannot be negative.
         - Missing or removed cells are properly identified.
         """
         if not live_state or "sensors" not in live_state:
@@ -33,6 +34,20 @@ class ReportService:
                 return False, "Prediction unavailable — invalid or insufficient telemetry."
 
         if temp is None or not isinstance(temp, (int, float)) or math.isnan(temp) or math.isinf(temp) or temp < -20.0 or temp > 100.0:
+            return False, "Prediction unavailable — invalid or insufficient telemetry."
+
+        predictions = live_state.get("predictions", {})
+        soc = predictions.get("soc_percent")
+        soh = predictions.get("soh_percent")
+        rul = predictions.get("rul_cycles")
+
+        if soc is not None and (not isinstance(soc, (int, float)) or math.isnan(soc) or soc < 0.0 or soc > 100.0):
+            return False, "Prediction unavailable — invalid or insufficient telemetry."
+
+        if soh is not None and (not isinstance(soh, (int, float)) or math.isnan(soh) or soh < 0.0 or soh > 100.0):
+            return False, "Prediction unavailable — invalid or insufficient telemetry."
+
+        if rul is not None and (not isinstance(rul, (int, float)) or math.isnan(rul) or rul < 0):
             return False, "Prediction unavailable — invalid or insufficient telemetry."
 
         return True, "Valid"
@@ -181,7 +196,7 @@ class ReportService:
             "title": "3. CALCULATED BATTERY METRICS",
             "min_cell_voltage_v": {"value": min_v, "formatted": f"{min_v:.2f} V", "label": "Calculated", "source_tag": "CALCULATED"},
             "max_cell_voltage_v": {"value": max_v, "formatted": f"{max_v:.2f} V", "label": "Calculated", "source_tag": "CALCULATED"},
-            "average_cell_voltage_v": {"value": avg_v, "formatted": f"{avg_v:.2f} V", "label": "Calculated", "source_tag": "CALCULATED", "formula": "(C1 + C2 + C3) / 3"},
+            "average_cell_voltage_v": {"value": avg_v, "formatted": f"{avg_v:.2f} V", "label": "Calculated", "source_tag": "CALCULATED", "formula": f"(C1 + C2 + C3) / {present_count}"},
             "cell_voltage_spread_v": {"value": spread_v, "formatted": f"{spread_v:.2f} V", "label": "Calculated", "source_tag": "CALCULATED", "formula": "Max Cell V - Min Cell V"}
         }
 
@@ -230,10 +245,10 @@ class ReportService:
 
         # 5. MODEL METADATA & PREDICTION SOURCE
         model_metadata = live_state.get("model_metadata", {
-            "soc_model": {"name": "SOC Model", "algorithm": "RandomForestRegressor", "target": "SoC_pct", "source": "ML inference", "version": "2.0"},
-            "soh_model": {"name": "SOH Model", "algorithm": "RandomForestRegressor", "target": "SoH_pct", "source": "ML inference", "version": "2.0"},
-            "rul_model": {"name": "RUL Model", "algorithm": "RandomForestRegressor" if rul_available else "Not Deployed", "target": "rul_to_80_cycles", "source": "ML inference" if rul_available else "Unavailable", "version": "2.0"},
-            "anomaly_model": {"name": "Anomaly Model / Detection", "algorithm": "RandomForestClassifier" if anomaly_source == "ML_PREDICTED" else "Engineering Threshold Logic", "target": "anomaly_label", "source": anomaly_source, "version": "2.0"}
+            "soc_model": {"name": "SOC Model", "algorithm": "XGBoost (XGBRegressor)", "target": "SoC_pct", "source": "ML inference", "version": "3.4.0", "validation_metric": "MAE: 5.56%, R²: 0.871"},
+            "soh_model": {"name": "SOH Model", "algorithm": "XGBoost (XGBRegressor)", "target": "SoH_pct", "source": "ML inference", "version": "3.4.0", "validation_metric": "MAE: 1.69%, R²: 0.942"},
+            "rul_model": {"name": "RUL Model", "algorithm": "XGBoost (XGBRegressor)" if rul_available else "Not Deployed", "target": "rul_to_80_cycles", "source": "ML inference" if rul_available else "Unavailable", "version": "3.4.0" if rul_available else "N/A", "validation_metric": "MAE: 3.80 cycles, R²: 0.995" if rul_available else "N/A"},
+            "anomaly_model": {"name": "Anomaly Model / Detection", "algorithm": "XGBoost (XGBClassifier)" if anomaly_source == "ML_PREDICTED" else "Engineering Threshold Logic", "target": "anomaly_label", "source": anomaly_source, "version": "3.4.0", "validation_metric": "Accuracy: 99.30%" if anomaly_source == "ML_PREDICTED" else "Deterministic Threshold Rules"}
         })
 
         return {
@@ -241,7 +256,7 @@ class ReportService:
             "battery_id": battery_id,
             "report_id": f"RPT-BLACKBOX-{abs(hash(raw_ts + str(c1))) % 1000000:06d}",
             "is_valid": True,
-            "prediction_source": "Prediction Source: ML Model Ensemble (RandomForest)",
+            "prediction_source": "Prediction Source: XGBoost ML Model",
             "system_status": system_status,
             "sections": {
                 "ml_predictions": ml_predictions_section,

@@ -124,22 +124,36 @@ export const useAppStore = create<AppState>()(
       },
       setTelemetry: (pack) => {
         const id = pack.batteryId || 'battery-01'
-        const prev = get().history[id] ?? get().history['battery-01'] ?? []
-        const next = [...prev, pack].slice(-HISTORY_CAP)
-        set((s) => ({
-          telemetry: {
-            ...s.telemetry,
-            [id]: pack,
-            'battery-01': pack,
-            '164de9f0-62ee-411a-b8b9-a73eb2406f97': pack
-          },
-          history: {
-            ...s.history,
-            [id]: next,
-            'battery-01': next,
-            '164de9f0-62ee-411a-b8b9-a73eb2406f97': next
-          },
-        }))
+        set((s) => {
+          const updatedTelemetry: Record<string, PackTelemetry> = { ...s.telemetry }
+          const updatedHistory: Record<string, PackTelemetry[]> = { ...s.history }
+
+          for (const b of s.batteries) {
+            if (b?.id) {
+              const bPack = { ...pack, batteryId: b.id }
+              updatedTelemetry[b.id] = bPack
+              const bPrev = s.history[b.id] ?? []
+              updatedHistory[b.id] = [...bPrev, bPack].slice(-HISTORY_CAP)
+            }
+          }
+
+          updatedTelemetry[id] = pack
+          updatedTelemetry['battery-01'] = { ...pack, batteryId: 'battery-01' }
+          updatedTelemetry['164de9f0-62ee-411a-b8b9-a73eb2406f97'] = { ...pack, batteryId: '164de9f0-62ee-411a-b8b9-a73eb2406f97' }
+          updatedTelemetry['battery-02'] = { ...pack, batteryId: 'battery-02' }
+
+          const defaultPrev = s.history['battery-01'] ?? []
+          const defaultNext = [...defaultPrev, pack].slice(-HISTORY_CAP)
+          updatedHistory[id] = defaultNext
+          updatedHistory['battery-01'] = defaultNext
+          updatedHistory['164de9f0-62ee-411a-b8b9-a73eb2406f97'] = defaultNext
+          updatedHistory['battery-02'] = defaultNext
+
+          return {
+            telemetry: updatedTelemetry,
+            history: updatedHistory
+          }
+        })
       },
 
       connection: 'connected',
@@ -194,15 +208,13 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'cellguard-ai',
-      version: 3,
+      version: 4,
       partialize: (s) => ({
         user: s.user,
         onboardingComplete: s.onboardingComplete,
         batteries: s.batteries,
         selectedBatteryId: s.selectedBatteryId || 'battery-01',
         messages: s.messages,
-        telemetry: s.telemetry,
-        history: s.history,
         notifications: s.notifications,
         settings: s.settings,
         sidebarCollapsed: s.sidebarCollapsed,

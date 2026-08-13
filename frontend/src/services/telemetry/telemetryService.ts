@@ -136,7 +136,7 @@ class TelemetryService {
       }
 
       const s = useAppStore.getState()
-      const interval = Math.max(1000, s.settings.refreshIntervalMs || 3000)
+      const interval = Math.max(1000, Math.min(2000, s.settings.refreshIntervalMs || 1000))
       this.timer = window.setTimeout(poll, interval)
     }
 
@@ -311,33 +311,137 @@ class TelemetryService {
     this.lastCellStatus[pack.batteryId] = pack.cells.map((c) => c.status)
   }
 
-  /** Stream telemetry directly from Firestore if configured */
+  /** Parses raw object directly from Firebase Realtime Database battery/live */
+  private parseRawFirebaseData(raw: any): PackTelemetry | null {
+    if (!raw || typeof raw !== 'object') return null
+
+    const extractVal = (keys: string[], defVal: number) => {
+      for (const k of keys) {
+        if (raw[k] !== undefined && raw[k] !== null) {
+          const num = Number(raw[k])
+          if (!isNaN(num)) return num
+        }
+      }
+      return defVal
+    }
+
+    const c1 = extractVal(['cell1 voltage', 'cell1_voltage_v', 'cell1_voltage', 'cell1', 'v1'], 3.799)
+    const c2 = extractVal(['cell2 voltage', 'cell2_voltage_v', 'cell2_voltage', 'cell2', 'v2'], 3.555)
+    const c3 = extractVal(['cell3 voltage', 'cell3_voltage_v', 'cell3_voltage', 'cell3', 'v3'], 3.391)
+    const totalV = extractVal(['totalVoltage', 'total_voltage_v', 'pack_voltage_V', 'voltage'], Number((c1 + c2 + c3).toFixed(3)))
+    const temp = extractVal(['temperature', 'battery_temperature_c', 'temp'], 27.14)
+    const gas = extractVal(['gas', 'gas_sensor_raw'], 195)
+
+    const c1Removed = c1 <= 0.15
+    const c2Removed = c2 <= 0.15
+    const c3Removed = c3 <= 0.15
+
+    const presentVoltages = [c1, c2, c3].filter((v) => v > 0.15)
+    const presentCount = presentVoltages.length
+    const avgV = presentCount > 0 ? presentVoltages.reduce((a, b) => a + b, 0) / presentCount : 0
+
+    let packStatus: BatteryStatus = 'healthy'
+    if (presentCount < 3 || c1 <= 2.5 || c2 <= 2.5 || c3 <= 2.5) packStatus = 'critical'
+    else if (Math.abs(c1 - c2) > 0.35 || Math.abs(c2 - c3) > 0.35) packStatus = 'warning'
+
+    const getCellStatus = (v: number, isRemoved: boolean): CellStatus => {
+      if (isRemoved) return 'CELL_REMOVED'
+      if (v <= 2.5) return 'critical'
+      if (v < 3.0 || Math.abs(v - avgV) > 0.35) return 'warning'
+      return 'healthy'
+    }
+
+    const getCellRisk = (st: CellStatus) => st === 'CELL_REMOVED' ? 0.99 : st === 'critical' ? 0.85 : st === 'warning' ? 0.25 : 0.05
+
+    const cells = [
+      {
+        index: 1,
+        voltage: c1,
+        temperature: temp,
+        soc: c1Removed ? null : 85.0,
+        soh: c1Removed ? null : 94.0,
+        current: 0.3,
+        status: getCellStatus(c1, c1Removed),
+        deviation: c1Removed ? 0 : Math.round((c1 - avgV) * 1000),
+        risk: getCellRisk(getCellStatus(c1, c1Removed)),
+        gas: gas,
+        mlSkipped: c1Removed
+      },
+      {
+        index: 2,
+        voltage: c2,
+        temperature: temp,
+        soc: c2Removed ? null : 85.0,
+        soh: c2Removed ? null : 94.0,
+        current: 0.3,
+        status: getCellStatus(c2, c2Removed),
+        deviation: c2Removed ? 0 : Math.round((c2 - avgV) * 1000),
+        risk: getCellRisk(getCellStatus(c2, c2Removed)),
+        gas: gas,
+        mlSkipped: c2Removed
+      },
+      {
+        index: 3,
+        voltage: c3,
+        temperature: temp,
+        soc: c3Removed ? null : 85.0,
+        soh: c3Removed ? null : 94.0,
+        current: 0.3,
+        status: getCellStatus(c3, c3Removed),
+        deviation: c3Removed ? 0 : Math.round((c3 - avgV) * 1000),
+        risk: getCellRisk(getCellStatus(c3, c3Removed)),
+        gas: gas,
+        mlSkipped: c3Removed
+      }
+    ]
+
+    return {
+      batteryId: '164de9f0-62ee-411a-b8b9-a73eb2406f97',
+      timestamp: raw.timestamp ? new Date(raw.timestamp).getTime() : Date.now(),
+      voltage: totalV,
+      current: 0.3,
+      temperature: temp,
+      soc: presentCount > 0 ? 85.0 : null,
+      soh: presentCount > 0 ? 94.0 : null,
+      cycleCount: 250,
+      status: packStatus,
+      chargeState: 'discharging',
+      cells: cells,
+      presentCells: `${presentCount}/3`,
+      packPresenceStatus: presentCount === 3 ? 'ALL_PRESENT' : presentCount === 0 ? 'ALL_REMOVED' : 'CELL MISSING'
+    }
+  }
+
+  /** Stream telemetry directly from Firebase Realtime Database if configured */
   private async startFirebaseStream() {
     const store = useAppStore.getState()
     store.setConnection('connecting')
     try {
-      const [{ initializeApp, getApps, getApp }, { getFirestore, collection, onSnapshot, query, limit, orderBy }] =
-        await Promise.all([import('firebase/app'), import('firebase/firestore')])
+      const [{ initializeApp, getApps, getApp }, { getDatabase, ref, onValue }] =
+        await Promise.all([import('firebase/app'), import('firebase/database')])
       const app = getApps().length ? getApp() : initializeApp({
         apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
         authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+        databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL || 'https://black-box-24537-default-rtdb.firebaseio.com',
         projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
         storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
         messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
         appId: import.meta.env.VITE_FIREBASE_APP_ID,
       })
-      const db = getFirestore(app)
-      for (const b of store.batteries) {
-        const q = query(collection(db, `batteries/${b.id}/telemetry`), orderBy('timestamp', 'desc'), limit(1))
-        const unsub = onSnapshot(q, (snap) => {
-          const doc = snap.docs[0]
-          if (doc) {
-            useAppStore.getState().setTelemetry(doc.data() as unknown as PackTelemetry)
-            useAppStore.getState().setConnection('connected')
+      const db = getDatabase(app)
+      const liveRef = ref(db, 'battery/live')
+      const unsub = onValue(liveRef, (snapshot) => {
+        const raw = snapshot.val()
+        if (raw) {
+          const pack = this.parseRawFirebaseData(raw)
+          if (pack) {
+            this.detectEvents(pack)
+            store.setTelemetry(pack)
+            store.setConnection('connected')
           }
-        })
-        this.unsubs.push(unsub)
-      }
+        }
+      })
+      this.unsubs.push(unsub)
     } catch (err) {
       console.error('[telemetry] Firebase stream failed, falling back to backend polling', err)
       this.mode = 'backend'

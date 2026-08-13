@@ -99,9 +99,12 @@ class PredictionService:
                 "soc_percent": predictions["soc"],
                 "soh_percent": predictions["soh"],
                 "rul_cycles": predictions["rul_cycles"],
+                "rul_available": predictions.get("rul_available", True),
                 "anomaly": predictions["anomaly"],
+                "anomaly_source": predictions.get("anomaly_source", "ML_PREDICTED"),
                 "anomaly_confidence": predictions["anomaly_confidence"],
             },
+            "model_metadata": predictions.get("model_metadata"),
             "status": predictions["system_status"]
         }
 
@@ -180,8 +183,8 @@ class PredictionService:
     def poll_and_process_firebase(self, battery_id: str = DEFAULT_BATTERY_ID) -> Optional[Dict[str, Any]]:
         """
         Continuously polls Firebase for telemetry.
-        Extracts timestamp, validates it, compares against memory & Supabase storage,
-        and processes ONLY new timestamps.
+        Extracts timestamp, validates it, and processes live state.
+        Ensures latest_live_state is always populated with live Firebase data.
         """
         telemetry = firebase_service.fetch_live_telemetry()
         if not telemetry:
@@ -194,23 +197,15 @@ class PredictionService:
             logger.error(f"[TELEMETRY ERROR] Invalid or missing timestamp: '{raw_ts}' - skipping")
             return self.latest_live_state
 
-        # 2. Check Memory Cache
-        if raw_ts == self.last_processed_timestamp:
-            logger.info(f"[TELEMETRY] Timestamp unchanged: {raw_ts} - skipping")
+        # 2. If memory cache is populated and timestamp is unchanged, return cached state
+        if self.latest_live_state is not None and raw_ts == self.last_processed_timestamp:
             return self.latest_live_state
 
-        # 3. Check Durable Supabase Storage (Backend Restart Protection)
-        if supabase_db.is_timestamp_processed(battery_id, raw_ts):
-            self.last_processed_timestamp = raw_ts
-            logger.info(f"[TELEMETRY] Timestamp {raw_ts} already processed - skipping")
-            return self.latest_live_state
-
-        # 4. Process New Telemetry Timestamp
+        # 3. Process Telemetry (calculates ML predictions & populates latest_live_state)
         try:
             return self.process_telemetry(telemetry, battery_id=battery_id)
         except Exception as e:
             logger.error(f"[TELEMETRY ERROR] Timestamp {raw_ts} failed processing: {e}")
-            logger.info(f"[TELEMETRY] Will retry timestamp {raw_ts}")
             return self.latest_live_state
 
 

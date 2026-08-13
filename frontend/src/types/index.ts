@@ -105,6 +105,7 @@ export interface ModelMetadataItem {
   source: string
   version: string
   features?: string[]
+  validation_metric?: string
 }
 
 export interface DiagnosticReport {

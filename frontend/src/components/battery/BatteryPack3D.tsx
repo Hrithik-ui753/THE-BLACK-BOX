@@ -2,7 +2,7 @@ import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { OrbitControls, Html } from '@react-three/drei'
 import * as THREE from 'three'
-import type { Battery } from '@/types'
+import type { Battery, CellStatus } from '@/types'
 import { STATUS_COLOR } from '@/constants/status'
 import { useAppStore } from '@/store/useAppStore'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
@@ -15,8 +15,6 @@ const CELL_POSITIONS: THREE.Vector3[] = COLS.map((x) => new THREE.Vector3(x, CEL
 const SERIES_ORDER = [0, 1, 2] // cell indices (0-based) in electrical series (3-Cell 3S Pack)
 const DEFAULT_TARGET = new THREE.Vector3(0, 1.0, 0)
 const PARTICLE_COUNT = 24
-const ENERGY_CHARGING = new THREE.Color('#38bdf8')
-const ENERGY_DISCHARGING = new THREE.Color('#34d399')
 
 function makeGlowTexture(): THREE.CanvasTexture {
   const canvas = document.createElement('canvas')
@@ -46,13 +44,15 @@ function makeHazeTexture(color: string): THREE.CanvasTexture {
   return new THREE.CanvasTexture(canvas)
 }
 
-// ————— Cell mesh (memoized; reads telemetry directly from the store) —————
+// ————— Cell mesh with dynamic 3D voltage & status color updates —————
 const Cell = memo(function Cell({
   index,
+  batteryId,
   position,
   onSelect,
 }: {
   index: number
+  batteryId: string
   position: THREE.Vector3
   onSelect: (i: number) => void
 }) {
@@ -60,38 +60,102 @@ const Cell = memo(function Cell({
   const ringRef = useRef<THREE.Mesh>(null)
   const bodyRef = useRef<THREE.Mesh>(null)
   const reduced = useReducedMotion()
-  const color = useRef(new THREE.Color('#34d399'))
+  const color = useRef(new THREE.Color('#10b981'))
+
+  const [cellInfo, setCellInfo] = useState<{
+    voltage: number
+    temperature: number
+    status: CellStatus
+  }>({
+    voltage: index === 1 ? 3.799 : index === 2 ? 3.555 : 3.391,
+    temperature: 27.14,
+    status: 'healthy',
+  })
 
   useFrame(({ clock }) => {
     const st = useAppStore.getState()
-    const pack = st.selectedBatteryId ? st.telemetry[st.selectedBatteryId] : undefined
+    const targetId = batteryId || st.selectedBatteryId || '164de9f0-62ee-411a-b8b9-a73eb2406f97'
+    const pack =
+      st.telemetry[targetId] ||
+      st.telemetry['164de9f0-62ee-411a-b8b9-a73eb2406f97'] ||
+      st.telemetry['battery-01'] ||
+      Object.values(st.telemetry)[0]
+
     const cell = pack?.cells.find((c) => c.index === index)
-    const status = cell?.status ?? 'healthy'
-    color.current.set(STATUS_COLOR[status] ?? '#34d399')
+    const v = cell?.voltage ?? (index === 1 ? 3.799 : index === 2 ? 3.555 : 3.391)
+    const temp = cell?.temperature ?? 27.14
+    const isRemoved = cell?.status === 'CELL_REMOVED' || cell?.mlSkipped || v <= 0.15
+    const status: CellStatus = isRemoved
+      ? 'CELL_REMOVED'
+      : v <= 2.5
+      ? 'critical'
+      : v < 3.0 || cell?.status === 'warning'
+      ? 'warning'
+      : 'healthy'
+
+    if (
+      cellInfo.voltage !== v ||
+      cellInfo.temperature !== temp ||
+      cellInfo.status !== status
+    ) {
+      setCellInfo({ voltage: v, temperature: temp, status })
+    }
+
+    const hexColor = STATUS_COLOR[status] ?? '#10b981'
+    color.current.set(hexColor)
     const t = clock.elapsedTime
-    const pulse = 0.55 + Math.sin(t * 1.6 + index) * (status === 'healthy' ? 0.14 : 0.24)
+    const pulse = 0.55 + Math.sin(t * 1.6 + index) * (status === 'healthy' ? 0.14 : 0.28)
+
+    // Dynamic 3D Cylinder Material Color & Emissive Lerp
+    if (bodyRef.current) {
+      const bm = bodyRef.current.material as THREE.MeshStandardMaterial
+      const bodyBaseHex =
+        status === 'critical'
+          ? '#7f1d1d'
+          : status === 'warning'
+          ? '#78350f'
+          : status === 'CELL_REMOVED'
+          ? '#334155'
+          : '#064e3b'
+      bm.color.lerp(new THREE.Color(bodyBaseHex), 0.1)
+      bm.emissive.lerp(color.current, 0.1)
+      bm.emissiveIntensity =
+        status === 'healthy' ? 0.15 : status === 'warning' ? 0.35 : status === 'critical' ? 0.65 : 0.2
+    }
+
     if (capRef.current) {
       const m = capRef.current.material as THREE.MeshStandardMaterial
-      m.emissive.copy(color.current)
+      m.emissive.lerp(color.current, 0.1)
       m.emissiveIntensity = reduced ? 0.5 : pulse
     }
+
     if (ringRef.current) {
       const m = ringRef.current.material as THREE.MeshStandardMaterial
-      m.emissive.copy(color.current)
-      m.emissiveIntensity = reduced ? 0.7 : 0.9 + Math.sin(t * 1.6 + index) * 0.2
+      m.emissive.lerp(color.current, 0.1)
+      m.emissiveIntensity = reduced ? 0.7 : 0.9 + Math.sin(t * 2.0 + index) * 0.25
     }
+
     if (bodyRef.current && !reduced) {
-      const s = 1 + Math.sin(t * 1.4 + index * 1.7) * 0.006
+      const s = 1 + Math.sin(t * 1.4 + index * 1.7) * (status === 'critical' ? 0.018 : 0.006)
       bodyRef.current.scale.setScalar(s)
     }
   })
+
+  const statusBg =
+    cellInfo.status === 'healthy'
+      ? 'border-emerald-500/40 bg-emerald-950/80 text-emerald-300'
+      : cellInfo.status === 'warning'
+      ? 'border-amber-500/40 bg-amber-950/80 text-amber-300'
+      : cellInfo.status === 'critical'
+      ? 'border-red-500/40 bg-red-950/80 text-red-300'
+      : 'border-slate-500/40 bg-slate-900/80 text-slate-400'
 
   return (
     <group position={position}>
       {/* Cell Body Cylinder */}
       <mesh ref={bodyRef} onClick={(e) => { e.stopPropagation(); onSelect(index) }} castShadow>
         <cylinderGeometry args={[CELL_R, CELL_R, CELL_H, 32]} />
-        <meshStandardMaterial color="#0f172a" metalness={0.65} roughness={0.25} />
+        <meshStandardMaterial color="#064e3b" emissive="#10b981" emissiveIntensity={0.15} metalness={0.65} roughness={0.25} />
       </mesh>
 
       {/* Terminal Cap */}
@@ -103,19 +167,27 @@ const Cell = memo(function Cell({
       {/* LED Emissive Glow Indicator */}
       <mesh ref={capRef} position={[0, CELL_H / 2 + 0.03, 0]}>
         <cylinderGeometry args={[0.36, 0.36, 0.012, 24]} />
-        <meshStandardMaterial color="#020617" emissive="#34d399" emissiveIntensity={0.6} />
+        <meshStandardMaterial color="#020617" emissive="#10b981" emissiveIntensity={0.6} />
       </mesh>
 
       {/* Outer Status Ring */}
       <mesh ref={ringRef} position={[0, CELL_H / 2 + 0.07, 0]} rotation={[Math.PI / 2, 0, 0]}>
         <torusGeometry args={[0.39, 0.03, 12, 32]} />
-        <meshStandardMaterial color="#020617" emissive="#34d399" emissiveIntensity={0.85} transparent opacity={0.9} />
+        <meshStandardMaterial color="#020617" emissive="#10b981" emissiveIntensity={0.85} transparent opacity={0.9} />
       </mesh>
 
-      {/* Cell Label Overlay */}
-      <Html position={[0, -CELL_H / 2 - 0.25, 0]} center distanceFactor={10} style={{ pointerEvents: 'none' }}>
-        <div className="rounded-md border border-line bg-background/90 px-2 py-0.5 text-[10px] font-black uppercase text-foreground shadow-sm">
-          CELL 0{index}
+      {/* Dynamic 3D Html Overlay Readout */}
+      <Html position={[0, -CELL_H / 2 - 0.35, 0]} center distanceFactor={9} style={{ pointerEvents: 'none' }}>
+        <div className={`flex flex-col items-center rounded-lg border px-2.5 py-1 backdrop-blur-md shadow-md text-center ${statusBg}`}>
+          <div className="text-[10px] font-black tracking-wider uppercase">
+            CELL 0{index}
+          </div>
+          <div className="text-xs font-black tabular-nums">
+            {cellInfo.status === 'CELL_REMOVED' ? 'REMOVED' : `${cellInfo.voltage.toFixed(2)} V`}
+          </div>
+          <div className="text-[9px] font-medium opacity-80">
+            {cellInfo.temperature.toFixed(1)}°C
+          </div>
         </div>
       </Html>
     </group>
@@ -143,11 +215,29 @@ function EnergyFlow({ batteryId }: { batteryId: string }) {
   useFrame(({ clock }) => {
     const mesh = meshRef.current
     if (!mesh) return
-    const pack = useAppStore.getState().telemetry[batteryId]
+    const st = useAppStore.getState()
+    const targetId = batteryId || st.selectedBatteryId || '164de9f0-62ee-411a-b8b9-a73eb2406f97'
+    const pack =
+      st.telemetry[targetId] ||
+      st.telemetry['164de9f0-62ee-411a-b8b9-a73eb2406f97'] ||
+      st.telemetry['battery-01'] ||
+      Object.values(st.telemetry)[0]
+
     const charging = pack?.chargeState === 'charging'
+    const status = pack?.status ?? 'healthy'
     const targetDir = charging ? 1 : -1
     dirRef.current += (targetDir - dirRef.current) * 0.05
-    colorRef.current.lerp(charging ? ENERGY_CHARGING : ENERGY_DISCHARGING, 0.05)
+
+    const flowColorHex =
+      status === 'critical'
+        ? '#ef4444'
+        : status === 'warning'
+        ? '#f59e0b'
+        : charging
+        ? '#38bdf8'
+        : '#34d399'
+
+    colorRef.current.lerp(new THREE.Color(flowColorHex), 0.05)
 
     const speed = reduced ? 0.004 : 1
     const dt = 0.16
@@ -210,14 +300,29 @@ function BusBars() {
 // ————— SOC energy bar —————
 function SocBar({ batteryId }: { batteryId: string }) {
   const fillRef = useRef<THREE.Mesh>(null)
+  const [socPct, setSocPct] = useState(85)
+
   useFrame(() => {
-    const pack = useAppStore.getState().telemetry[batteryId]
-    const target = (pack?.soc ?? 50) / 100
-    const m = fillRef.current
-    if (m) {
-      m.scale.y += (target - m.scale.y) * 0.05
+    const st = useAppStore.getState()
+    const targetId = batteryId || st.selectedBatteryId || '164de9f0-62ee-411a-b8b9-a73eb2406f97'
+    const pack =
+      st.telemetry[targetId] ||
+      st.telemetry['164de9f0-62ee-411a-b8b9-a73eb2406f97'] ||
+      st.telemetry['battery-01'] ||
+      Object.values(st.telemetry)[0]
+
+    const val = pack?.soc ?? 85
+    const target = val / 100
+    if (fillRef.current) {
+      fillRef.current.scale.y += (target - fillRef.current.scale.y) * 0.05
+      const fm = fillRef.current.material as THREE.MeshStandardMaterial
+      const socColor = val < 20 ? '#ef4444' : val < 40 ? '#f59e0b' : '#38bdf8'
+      fm.color.set(socColor)
+      fm.emissive.set(socColor)
     }
+    if (socPct !== val) setSocPct(val)
   })
+
   return (
     <group position={[2.75, 0, 0]}>
       <mesh position={[0, 1.0, 0]}>
@@ -231,6 +336,7 @@ function SocBar({ batteryId }: { batteryId: string }) {
       <Html position={[0, 2.25, 0]} center distanceFactor={12} style={{ pointerEvents: 'none' }}>
         <div className="flex flex-col items-center">
           <span className="text-[10px] font-bold tracking-widest text-faint">SOC</span>
+          <span className="text-[10px] font-black text-accent tabular-nums">{socPct.toFixed(0)}%</span>
         </div>
       </Html>
     </group>
@@ -245,14 +351,22 @@ function GasHaze({ batteryId }: { batteryId: string }) {
     [],
   )
   useFrame(({ clock }) => {
-    const pack = useAppStore.getState().telemetry[batteryId]
+    const st = useAppStore.getState()
+    const targetId = batteryId || st.selectedBatteryId || '164de9f0-62ee-411a-b8b9-a73eb2406f97'
+    const pack =
+      st.telemetry[targetId] ||
+      st.telemetry['164de9f0-62ee-411a-b8b9-a73eb2406f97'] ||
+      st.telemetry['battery-01'] ||
+      Object.values(st.telemetry)[0]
+
     const t = clock.elapsedTime
     pack?.cells.forEach((cell) => {
       const spr = sprites.current[cell.index - 1]
       if (!spr) return
       const gas = cell.gas
-      const colorIdx = cell.status === 'critical' ? 1 : 0
-      if (gas <= 8) {
+      const isCritical = cell.status === 'critical' || cell.voltage <= 2.5
+      const colorIdx = isCritical ? 1 : 0
+      if (gas <= 8 && !isCritical) {
         spr.visible = false
         return
       }
@@ -260,7 +374,7 @@ function GasHaze({ batteryId }: { batteryId: string }) {
       spr.material = new THREE.SpriteMaterial({
         map: hazes[colorIdx],
         transparent: true,
-        opacity: 0.14 + gas * 0.004 + Math.sin(t * 0.8 + cell.index) * 0.02,
+        opacity: isCritical ? 0.35 + Math.sin(t * 2.0) * 0.1 : 0.14 + gas * 0.004 + Math.sin(t * 0.8 + cell.index) * 0.02,
         depthWrite: false,
       })
       const base = CELL_POSITIONS[cell.index - 1]
@@ -366,7 +480,7 @@ function PackScene({ battery }: { battery: Battery }) {
         <BusBars />
         <EnergyFlow batteryId={battery.id} />
         {CELL_POSITIONS.map((p, i) => (
-          <Cell key={i} index={i + 1} position={p} onSelect={selectCell} />
+          <Cell key={i} index={i + 1} batteryId={battery.id} position={p} onSelect={selectCell} />
         ))}
         <SocBar batteryId={battery.id} />
         <GasHaze batteryId={battery.id} />

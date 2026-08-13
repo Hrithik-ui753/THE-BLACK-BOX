@@ -1,9 +1,9 @@
 import os
 import pandas as pd
 import joblib
+import xgboost as xgb
 
 from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import (
     accuracy_score,
@@ -179,21 +179,12 @@ print(
 # CREATE CLASSIFIER
 # ============================================================
 
-model = RandomForestClassifier(
-
+model = xgb.XGBClassifier(
     n_estimators=300,
-
-    max_depth=None,
-
-    min_samples_split=2,
-
-    min_samples_leaf=1,
-
+    max_depth=6,
+    learning_rate=0.05,
     random_state=42,
-
-    n_jobs=-1,
-
-    class_weight="balanced"
+    n_jobs=-1
 )
 
 
@@ -202,7 +193,7 @@ model = RandomForestClassifier(
 # ============================================================
 
 print(
-    "\nTraining Random Forest "
+    "\nTraining XGBoost "
     "Anomaly classifier..."
 )
 

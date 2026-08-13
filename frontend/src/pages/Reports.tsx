@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Download, Eye, FileText, Gauge, HeartPulse, ShieldAlert, Sparkles, CheckCircle2, Cpu } from 'lucide-react'
+import { Download, Eye, FileText, Gauge, HeartPulse, ShieldAlert, CheckCircle2, Cpu } from 'lucide-react'
 import { useAppStore } from '@/store/useAppStore'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -70,7 +70,7 @@ function buildReports(): Report[] {
       metrics: {
         'SOC (ML Predicted)': fmtPct(soc),
         'SOH (ML Predicted)': fmtPct(soh),
-        'RUL (ML Predicted)': 'Prediction unavailable (Model uncalibrated)',
+        'RUL (ML Predicted)': 'Prediction unavailable',
         'Cell 1 Voltage (Measured)': fmtV(c1),
         'Cell 2 Voltage (Measured)': fmtV(c2),
         'Cell 3 Voltage (Measured)': fmtV(c3),
@@ -78,7 +78,7 @@ function buildReports(): Report[] {
         'Cycle Count (Measured)': `${cycles}`,
         'Avg Cell Voltage (Calculated)': fmtV(avgV),
         'Cell Voltage Spread (Calculated)': fmtV(spreadV),
-        'Prediction Source': 'ML Model Ensemble (RandomForest)',
+        'Prediction Source': 'XGBoost ML Model',
       },
       actions: [
         spreadV > 0.35
@@ -123,14 +123,14 @@ function buildReports(): Report[] {
         if (!p1) return ['Telemetry connecting.']
         const pred = predictHealth(p1)
         return [
-          `Trained RandomForest ML Model estimates ${fmtPct(pred.predictedSoh)} SOH projection over 90-day horizon.`,
+          `Trained XGBoost ML Model estimates ${fmtPct(pred.predictedSoh)} SOH projection over 90-day horizon.`,
           `Degradation trend evaluated at 0.04% per 10 cycles under nominal thermal envelope.`,
         ]
       })(),
       metrics: {
         'Current SOH (ML Predicted)': fmtPct(soh),
         '90d SOH Horizon (ML Predicted)': fmtPct(predictHealth(p1 || { soh: 94, cycleCount: 250 } as any).predictedSoh),
-        'Prediction Source': 'ML Model Ensemble (RandomForest)',
+        'Prediction Source': 'XGBoost ML Model',
       },
       actions: [
         'No immediate maintenance required. Maintain thermal operation below 35°C.',
@@ -342,7 +342,7 @@ function downloadReportPdf(report: Report) {
   </div>
 
   <div class="ai-banner">
-    <div><b>Model Pipeline:</b> Trained ML Ensemble (RandomForest)</div>
+    <div><b>Model Pipeline:</b> Trained XGBoost ML Models</div>
     <div><b>Natural Language Explanation:</b> Microsoft Azure OpenAI REST API</div>
   </div>
 
@@ -377,7 +377,7 @@ export function Reports() {
         <div>
           <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">Reports</h1>
           <p className="mt-0.5 text-xs text-muted">
-            Technically transparent diagnostic reports powered by <span className="font-semibold text-accent">RandomForest ML Models</span> & <span className="font-semibold text-foreground">Microsoft Azure OpenAI API</span>.
+            Technically transparent diagnostic reports powered by <span className="font-semibold text-accent">XGBoost ML Models</span> & <span className="font-semibold text-foreground">Microsoft Azure OpenAI API</span>.
           </p>
         </div>
       </div>
@@ -452,7 +452,7 @@ export function Reports() {
                   <span className="text-[11px] font-semibold text-muted">THE BLACK BOX Transparent Diagnostic Report</span>
                 </div>
                 <span className="flex items-center gap-1 text-[11px] font-semibold text-accent">
-                  <Cpu className="h-3.5 w-3.5" /> Trained ML Model Ensemble
+                  <Cpu className="h-3.5 w-3.5" /> Deployed XGBoost ML Models
                 </span>
               </div>
 

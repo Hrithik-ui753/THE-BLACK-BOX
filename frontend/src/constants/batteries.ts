@@ -14,6 +14,17 @@ export const SEED_BATTERIES: Battery[] = [
     createdAt: Date.now() - 1000 * 60 * 60 * 24 * 120,
   },
   {
+    id: '164de9f0-62ee-411a-b8b9-a73eb2406f97',
+    userId: 'demo-user',
+    name: '3 Individual Cells Module (Primary)',
+    type: 'Modular · 3x Individual Cells (Cell 1, Cell 2, Cell 3)',
+    mode: 'individual_cells',
+    cellCount: 3,
+    status: 'healthy',
+    deviceId: 'ESP32-77BC01',
+    createdAt: Date.now() - 1000 * 60 * 60 * 24 * 120,
+  },
+  {
     id: 'battery-02',
     userId: 'demo-user',
     name: '3 Individual Cells Module (Pack 2)',

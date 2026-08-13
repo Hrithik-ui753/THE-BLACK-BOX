@@ -4,6 +4,7 @@ import { Sidebar } from './Sidebar'
 import { TopBar } from './TopBar'
 import { FloatingAIButton, AIChatPanel } from '@/components/ai/AIChat'
 import { useAppStore } from '@/store/useAppStore'
+import { telemetryService } from '@/services/telemetry/telemetryService'
 
 export function AppShell() {
   const collapsed = useAppStore((s) => s.sidebarCollapsed)
@@ -11,10 +12,8 @@ export function AppShell() {
 
   // Start the telemetry stream once the shell mounts; stop on unmount.
   useEffect(() => {
-    void import('@/services/telemetry/telemetryService').then(({ telemetryService }) => {
-      telemetryService.start()
-      return () => telemetryService.stop()
-    })
+    telemetryService.start()
+    return () => telemetryService.stop()
   }, [])
 
   return (

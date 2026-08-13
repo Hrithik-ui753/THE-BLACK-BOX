@@ -1,1162 +1,390 @@
-# THE BLACK BOX
+# THE_BLACK_BOX
 
 ## AI-Powered Battery Health, Predictive Maintenance & Cell-Level Diagnostics
 
-THE BLACK BOX is an intelligent battery monitoring, predictive maintenance, and cell-level diagnostic platform designed for 3S Li-ion battery packs.
+<p align="center">
+  <strong>3S Li-ion Battery Monitoring • Cell-Level Diagnostics • XGBoost Prediction • Predictive Maintenance • Cloud Analytics</strong>
+</p>
 
-The system combines real-time battery telemetry, engineering calculations, feature engineering, machine learning, deterministic safety rules, cloud storage, alert services, and AI-powered explanations.
+<p align="center">
+  <img src="assets/hardware-prototype.png" alt="THE_BLACK_BOX hardware prototype" width="900">
+</p>
 
-The primary objective is not simply to display battery voltage.
-
-The objective is to answer:
-
-- Is the battery healthy?
-- How much charge remains?
-- How much health remains?
-- How many useful cycles may remain?
-- Is the battery behaving abnormally?
-- Which cell is responsible for the abnormality?
-- Should the battery be recharged?
-- Should a particular cell be replaced?
-- Should the complete battery pack be replaced?
-- What caused the detected condition?
-- What action should the user take?
+> **THE_BLACK_BOX is not just a battery monitor. It is a battery intelligence system that converts raw cell-level telemetry into health predictions, anomaly detection, risk classification, and actionable maintenance decisions.**
 
 ---
 
-# 1. Problem Statement
+## 🚀 Why THE_BLACK_BOX?
 
-Lithium-ion batteries are widely used in electric mobility, portable electronics, backup power systems, energy storage systems, robotics, and industrial equipment.
-
-However, battery degradation is not always uniform across individual cells.
-
-A multi-cell battery pack may contain:
-
-- Healthy cells
-- Degraded cells
-- Imbalanced cells
-- Over-discharged cells
-- Failed cells
-
-A conventional pack-level monitoring system may only observe the total pack voltage.
-
-This can hide an important problem.
-
-Two packs can have the same total voltage while having completely different individual cell conditions.
+Traditional battery monitoring often focuses on **pack-level voltage**. That can hide a weak or failing cell.
 
 For example:
 
-Cell 1 = 3.60 V  
-Cell 2 = 3.60 V  
-Cell 3 = 3.60 V
+```text
+Pack A:  3.60 V + 3.60 V + 3.60 V = 10.80 V
+Pack B:  4.00 V + 3.90 V + 2.90 V = 10.80 V
+```
 
-Total = 10.80 V
+Both packs have the same total voltage.
 
-Another pack may have:
+But Pack B contains a severely weaker cell.
 
-Cell 1 = 4.00 V  
-Cell 2 = 3.90 V  
-Cell 3 = 2.90 V
+**THE_BLACK_BOX looks inside the pack.**
 
-Total = 10.80 V
+It continuously combines:
 
-The total voltage is identical.
+- 🔋 Individual cell voltage
+- ⚡ Current
+- 🌡️ Battery temperature
+- 🌡️ Ambient temperature
+- 🧪 Gas-sensor signal
+- 🔄 Cycle information
+- 📊 Derived battery-health features
+- 🤖 XGBoost-based prediction
+- 🚨 Deterministic safety rules
+- ☁️ Cloud telemetry and storage
+- 🧠 AI-assisted explanations
+- 📈 Web-based analytics
 
-However, the second pack has significant cell imbalance.
+The result is a system designed to answer:
 
-Therefore, pack-level voltage alone is not sufficient for detailed battery diagnostics.
-
----
-
-# 2. Proposed Solution
-
-THE BLACK BOX solves this problem by monitoring individual cells and combining their measurements with current, temperature, ambient temperature, and gas-sensor information.
-
-The platform contains four major intelligence layers:
-
-1. Sensor monitoring
-2. Engineering feature calculation
-3. Machine learning prediction
-4. Deterministic safety and action logic
-
-The resulting system converts raw measurements into actionable battery information.
+> **Is the battery healthy, what is going wrong, which cell is responsible, and what should the user do next?**
 
 ---
 
-# 3. Main Objectives
+# 🧠 Core Intelligence
 
-The system is designed to:
+THE_BLACK_BOX is structured as an end-to-end intelligence pipeline:
 
-- Monitor a 3S Li-ion battery pack.
-- Measure individual cell voltages.
-- Calculate pack voltage.
-- Monitor battery current.
-- Monitor battery temperature.
-- Monitor ambient temperature.
-- Monitor gas-sensor measurements.
-- Calculate battery-health features.
-- Estimate SOC.
-- Estimate SOH.
-- Predict RUL.
-- Detect anomalies.
-- Identify weak or failed cells.
-- Determine battery risk.
-- Recommend recharge or replacement.
-- Send critical alerts.
-- Provide AI-generated explanations.
-- Display the information through a web dashboard.
-
----
-
-# 4. Battery Configuration
-
-The prototype uses a 3S Li-ion battery configuration.
-
-3S means that three cells are connected in series.
-
-The individual cells are approximately 3.6–3.7 V under normal operating conditions.
-
-The three cells together form the battery pack.
-
-The approximate nominal configuration is therefore:
-
-Cell 1 + Cell 2 + Cell 3
-
-The exact measured voltage varies according to:
-
-- State of charge
-- Charging condition
-- Discharging condition
-- Load
-- Temperature
-- Cell condition
-- Aging
-- Measurement conditions
-
----
-
-# 5. Battery Capacity
-
-The cells used in the prototype are approximately 3000 mAh.
-
-Therefore:
-
-Rated cell capacity ≈ 3 Ah
-
-For a series-connected 3S configuration, the voltage increases while the Ah capacity remains approximately that of one cell, assuming matched cells and ideal series operation.
-
-The battery capacity used for health calculations is therefore based on the rated capacity of the pack configuration.
-
----
-
-# 6. Raw Sensor Inputs
-
-The system receives raw telemetry such as:
-
-- Cell 1 voltage
-- Cell 2 voltage
-- Cell 3 voltage
-- Current
-- Battery temperature
-- Ambient temperature
-- Gas sensor raw value
-
-The system can also receive pack voltage directly when available.
+```text
+┌──────────────────────┐
+│   3S Li-ion Battery  │
+│      Cell 1/2/3      │
+└──────────┬───────────┘
+           │
+           ▼
+┌──────────────────────┐
+│       Sensors        │
+│ Voltage • Current    │
+│ Temperature • Gas    │
+└──────────┬───────────┘
+           │
+           ▼
+┌──────────────────────┐
+│   Arduino Due /      │
+│   Telemetry Layer    │
+└──────────┬───────────┘
+           │
+           ▼
+┌──────────────────────┐
+│ Firebase / Supabase  │
+│   Cloud Data Layer   │
+└──────────┬───────────┘
+           │
+           ▼
+┌──────────────────────┐
+│   FastAPI Backend    │
+└──────────┬───────────┘
+           │
+           ▼
+┌──────────────────────┐
+│ Feature Engineering  │
+│ Raw → Battery Health │
+│       Features       │
+└──────────┬───────────┘
+           │
+           ├──────────────────┐
+           ▼                  ▼
+┌──────────────────┐  ┌────────────────────┐
+│ XGBoost ML Layer │  │ Deterministic       │
+│ SOC / SOH / RUL  │  │ Safety & Rule Engine│
+│ / Anomaly Logic  │  │ Risk / Actions      │
+└────────┬─────────┘  └──────────┬─────────┘
+         │                       │
+         └───────────┬───────────┘
+                     ▼
+          ┌──────────────────────┐
+          │ Battery Intelligence│
+          │ Health • Risk • Cell │
+          │ Diagnosis • Action   │
+          └──────────┬───────────┘
+                     │
+          ┌──────────┴───────────┐
+          ▼                      ▼
+┌────────────────────┐  ┌───────────────────┐
+│ React Web Dashboard│  │ Alerts / AI       │
+│ Analytics / Reports│  │ Explanations      │
+└────────────────────┘  └───────────────────┘
+```
 
 ---
 
-# 7. Cell Voltage Inputs
+# 🔋 Hardware Prototype
 
-The three cell voltages are represented as:
+The current prototype is a **3S battery monitoring and analytics system**.
 
-V1 = Cell 1 voltage
+### Hardware architecture
 
-V2 = Cell 2 voltage
+- 3 × 18650 cells connected in series
+- 12 V battery pack
+- Arduino Due
+- Cell-voltage sensing modules
+- Temperature sensors
+- MQ-135 gas sensor
+- Breadboard/interconnection layer
+- Wiring harness
+- 12 V DC power input
 
-V3 = Cell 3 voltage
+### Prototype connection concept
 
-The pack voltage is calculated as:
+```text
+B1 ── B2 ── B3
+│      │      │
+▼      ▼      ▼
+V1     V2     V3
+│      │      │
+└──────┴──────┴──────► Arduino Due
+                         │
+                         ├── Temperature
+                         ├── Gas Sensor
+                         └── Telemetry
+                                │
+                                ▼
+                         Firebase / Cloud
+```
 
-Pack Voltage = V1 + V2 + V3
-
-This allows the system to compare individual cell behavior with total pack behavior.
-
----
-
-# 8. Current Input
-
-The battery current in the prototype is observed in the approximate range:
-
-0.1–0.4 A
-
-Current is important because battery behavior depends not only on voltage but also on the load being applied.
-
-Current is used to derive:
-
-- C-rate
-- Power
-- Load conditions
-- High-current burst indicators
-- Resistance-related features
-
----
-
-# 9. Battery Temperature
-
-The normal battery temperature operating range used in the project is approximately:
-
-25–40 °C
-
-Temperature is an important battery-health parameter.
-
-Increasing temperature can affect:
-
-- Battery efficiency
-- Battery degradation
-- Internal resistance
-- Safety
-- Available capacity
-- Anomaly risk
-
-The system therefore monitors both the average and maximum battery temperature.
+> The hardware image above documents the actual prototype architecture and wiring concept used by the project.
 
 ---
 
-# 10. Ambient Temperature
+# 📡 What We Measure
 
-Ambient temperature is monitored separately from battery temperature.
-
-The prototype environment is approximately:
-
-20–35 °C
-
-Ambient temperature is important because a battery temperature of 35 °C has a different meaning when the surrounding environment is 20 °C compared with when the environment is already 35 °C.
-
-Therefore the system calculates temperature rise.
-
----
-
-# 11. Gas Sensor
-
-The system includes an MQ-135 gas sensor.
-
-Example raw reading:
-
-MQ-135 Raw = 155
-
-Example voltage:
-
-MQ-135 Voltage = 0.148 V
-
-The gas sensor is treated as an abnormal-condition indicator rather than as a direct measurement of a specific battery gas concentration.
-
-The system monitors changes in the gas signal and combines them with temperature and other battery measurements.
+| Signal | Purpose |
+|---|---|
+| Cell 1 Voltage | Cell-level condition |
+| Cell 2 Voltage | Cell-level condition |
+| Cell 3 Voltage | Cell-level condition |
+| Pack Voltage | Overall electrical state |
+| Current | Load / charging behavior |
+| Battery Temperature | Thermal condition |
+| Ambient Temperature | Environmental reference |
+| MQ-135 Signal | Abnormal-condition indicator |
+| Cycle ID | Aging / usage context |
 
 ---
 
-# 12. Telemetry Architecture
+# 🧮 Feature Engineering
 
-The general data flow is:
+Raw sensor readings are transformed into engineering features before prediction.
 
-Battery
+### Core features
 
-↓
-
-Sensors
-
-↓
-
-Telemetry
-
-↓
-
-Cloud Database
-
-↓
-
-FastAPI Backend
-
-↓
-
-Feature Engineering
-
-↓
-
-Safety Rules + ML
-
-↓
-
-Predictions
-
-↓
-
-Frontend
-
-The backend processes the incoming telemetry and generates battery intelligence.
-
----
-
-# 13. Cloud Data Layer
-
-The system uses cloud database services for telemetry and application data.
-
-Supabase is used for backend data storage and retrieval.
-
-Firebase is also integrated into the application where configured.
-
-The cloud layer allows sensor data to be accessed by the backend and displayed by the frontend.
-
----
-
-# 14. Backend
-
-The backend is implemented using Python and FastAPI.
-
-The backend is responsible for:
-
-- Telemetry processing
-- Database communication
-- Feature calculation
-- ML inference
-- Prediction APIs
-- Battery APIs
-- Analytics APIs
-- Alert processing
-- Authentication
-- AI services
-- Timestamp handling
-
-The backend acts as the central intelligence layer between the cloud data and frontend.
-
----
-
-# 15. Feature Engineering
-
-Raw sensor values are not directly sufficient for all predictions.
-
-The system therefore derives additional features.
-
-Feature engineering transforms raw telemetry into meaningful battery-health indicators.
-
-The current feature set includes:
-
-- battery_id
-- cycle_id
-- usage_profile
-- voltage_avg_V
-- avg_c_rate
-- max_current_A
-- avg_temperature_C
-- max_temperature_C
-- ambient_temperature_C
-- gas_sensor_raw
-- discharge_depth_pct
-- high_current_burst
-- charge_time_min
-- discharge_time_min
-- internal_resistance_proxy_ohm
-- capacity_Ah
-- temperature_rise_C
-- power_avg_W
-- gas_change_index
-
----
-
-# 16. Average Voltage
-
-Average cell voltage is calculated from the three measured cell voltages.
-
-voltage_avg_V = (V1 + V2 + V3) / 3
-
-This represents the average electrical state of the three cells.
-
-It is useful for identifying overall pack behavior.
-
----
-
-# 17. Minimum Cell Voltage
-
-The minimum cell voltage is:
-
-min_cell_voltage = min(V1, V2, V3)
-
-This identifies the weakest cell at a particular measurement.
-
-For example:
-
-V1 = 3.60 V  
-V2 = 3.55 V  
-V3 = 2.90 V
-
-Minimum cell voltage = 2.90 V
-
-Cell 3 is therefore the weakest cell.
-
----
-
-# 18. Maximum Cell Voltage
-
-The maximum cell voltage is:
-
-max_cell_voltage = max(V1, V2, V3)
-
-This allows the system to compare the strongest and weakest cells.
-
----
-
-# 19. Cell Voltage Imbalance
-
-Cell imbalance is calculated as:
-
-cell_voltage_imbalance = max_cell_voltage - min_cell_voltage
-
-Example:
-
-V1 = 3.60 V  
-V2 = 3.55 V  
-V3 = 2.90 V
-
-Maximum = 3.60 V
-
-Minimum = 2.90 V
-
-Imbalance = 0.70 V
-
-A larger imbalance indicates that the cells are behaving differently.
-
----
-
-# 20. C-Rate
-
-C-rate describes the charging or discharging current relative to battery capacity.
-
-C-rate is calculated approximately as:
-
-C-rate = Current / Capacity
-
-For a 3 Ah battery:
-
-Current = 0.3 A
-
-C-rate = 0.3 / 3
-
-C-rate = 0.1 C
-
-Therefore a 0.3 A load corresponds to approximately 0.1C for a 3 Ah battery.
-
----
-
-# 21. Maximum Current
-
-The maximum current observed over a measurement period is stored as:
-
+```text
+battery_id
+cycle_id
+usage_profile
+voltage_avg_V
+avg_c_rate
 max_current_A
-
-This captures high-current events that may not be visible from average current alone.
-
----
-
-# 22. Temperature Rise
-
-Temperature rise is calculated relative to ambient temperature.
-
-temperature_rise_C = battery_temperature - ambient_temperature
-
-Example:
-
-Battery temperature = 35 °C
-
-Ambient temperature = 30 °C
-
-Temperature rise = 5 °C
-
-This helps distinguish environmental temperature from battery-generated heating.
-
----
-
-# 23. Average Temperature
-
-Average battery temperature represents the typical thermal condition over the selected observation period.
-
-It is used by the ML models and risk engine.
-
----
-
-# 24. Maximum Temperature
-
-Maximum temperature identifies the highest battery temperature observed during the measurement period.
-
-This is important for detecting thermal stress.
-
----
-
-# 25. Power
-
-Average electrical power is approximately:
-
-Power = Voltage × Current
-
-For example:
-
-Voltage = 11 V
-
-Current = 0.3 A
-
-Power = 3.3 W
-
-Power provides information about the electrical load being experienced by the battery.
-
----
-
-# 26. Discharge Depth
-
-Discharge depth represents how deeply the battery has been discharged relative to its usable range.
-
-A larger discharge depth means that more of the battery's available charge has been consumed.
-
-Repeated deep discharge can contribute to battery degradation.
-
----
-
-# 27. High Current Burst
-
-A high-current burst identifies periods where current temporarily increases above the normal operating level.
-
-This feature helps distinguish steady operation from transient electrical stress.
-
----
-
-# 28. Charge Time
-
-charge_time_min represents the duration of the charging period.
-
-Charging duration can provide additional information about battery condition and charging behavior.
-
----
-
-# 29. Discharge Time
-
-discharge_time_min represents the duration of the discharge period.
-
-This can be combined with current, capacity, voltage, and discharge depth to characterize battery usage.
-
----
-
-# 30. Internal Resistance Proxy
-
-Battery internal resistance can be approximated from voltage response to changes in current.
-
-Conceptually:
-
-Resistance ≈ ΔV / ΔI
-
-The project stores this as:
-
+avg_temperature_C
+max_temperature_C
+ambient_temperature_C
+gas_sensor_raw
+discharge_depth_pct
+high_current_burst
+charge_time_min
+discharge_time_min
 internal_resistance_proxy_ohm
+capacity_Ah
+temperature_rise_C
+power_avg_W
+gas_change_index
+```
 
-It is called a proxy because it is an estimated indicator rather than a laboratory-grade impedance measurement.
+### Important derived metrics
 
-Increasing resistance can be associated with battery aging.
+**Pack voltage**
 
----
+```text
+Pack Voltage = V1 + V2 + V3
+```
 
-# 31. Capacity
+**Average cell voltage**
 
-capacity_Ah represents the estimated available battery capacity.
+```text
+Vavg = (V1 + V2 + V3) / 3
+```
 
-The rated cell capacity is approximately:
+**Cell imbalance**
 
-3 Ah
+```text
+Cell Imbalance = max(V1, V2, V3) - min(V1, V2, V3)
+```
 
-If the measured usable capacity decreases over time, the battery is degrading.
+**C-rate**
 
-Capacity is therefore an important feature for SOH prediction.
+```text
+C-rate ≈ Current / Capacity
+```
 
----
+**Temperature rise**
 
-# 32. Gas Change Index
+```text
+Temperature Rise = Battery Temperature - Ambient Temperature
+```
 
-The gas-change feature captures variation in the gas sensor signal.
+**Electrical power**
 
-The purpose is to detect unusual changes rather than treat one raw gas value as a complete safety diagnosis.
+```text
+Power ≈ Voltage × Current
+```
 
-Gas behavior can be combined with:
+**Internal-resistance proxy**
 
-- Battery temperature
-- Ambient temperature
-- Current
-- Voltage
-- Voltage imbalance
+```text
+Rproxy ≈ ΔV / ΔI
+```
 
-to improve abnormal-condition detection.
-
----
-
-# 33. Feature Interaction
-
-Battery behavior is not determined by a single parameter.
-
-Important combinations include:
-
-Current + Temperature
-
-Voltage + Current
-
-Cell Voltage + Cell Imbalance
-
-Temperature + Ambient Temperature
-
-Gas + Temperature
-
-Cycle Number + Capacity
-
-These relationships can be nonlinear.
-
-For example, low voltage at low current may indicate a depleted battery, while low voltage combined with high current and high temperature can indicate a more severe operating condition.
+These features allow the system to reason about battery behavior rather than simply display raw measurements.
 
 ---
 
-# 34. Why Individual Cell Measurements Matter
+# 🤖 Machine Learning
 
-Pack voltage alone can hide cell-level failures.
+THE_BLACK_BOX uses **XGBoost** for the machine-learning prediction layer.
 
-For example:
+The ML pipeline is designed around engineered battery features rather than a single sensor value.
 
-3.6 + 3.6 + 3.6 = 10.8 V
+### Prediction objectives
 
-and:
+- **SOC** — State of Charge
+- **SOH** — State of Health
+- **RUL** — Remaining Useful Life
+- **Anomaly / abnormal-condition assessment**
 
-4.0 + 3.9 + 2.9 = 10.8 V
+### Why feature engineering matters
 
-Both have the same total voltage.
+Battery degradation is multi-dimensional.
 
-However, the second pack contains a much weaker cell.
+A battery can show abnormal behavior because of a combination of:
 
-Therefore the system preserves individual cell voltage measurements throughout the processing pipeline.
+```text
+Voltage
+   +
+Current
+   +
+Temperature
+   +
+Cell Imbalance
+   +
+Cycle History
+   +
+Capacity
+   +
+Resistance Proxy
+```
 
----
-
-# 35. End-to-End Intelligence
-
-The system converts:
-
-Raw Sensor Data
-
-↓
-
-Derived Features
-
-↓
-
-ML Predictions
-
-↓
-
-Safety Rules
-
-↓
-
-Risk Classification
-
-↓
-
-Action Recommendation
-
-↓
-
-User Notification
-
-This is the core architecture of THE BLACK BOX.# 101. Frontend
-
-The frontend is built using React, TypeScript, and Vite.
-
-Its purpose is to transform complex battery telemetry and ML outputs into a clear operational dashboard.
-
-The frontend includes views for:
-
-- Dashboard
-- Battery details
-- Analytics
-- Reports
-- Settings
-- Authentication
-- AI assistant
-- Battery visualization
-- Cell diagnostics
-- Alerts
+XGBoost can model nonlinear relationships between these engineered features and the target battery-health outputs.
 
 ---
 
-# 102. Dashboard
+# 🛡️ ML + Deterministic Safety
 
-The dashboard provides a high-level overview of battery condition.
+A key design principle of THE_BLACK_BOX is:
 
-Typical information includes:
+> **Machine learning predicts. Deterministic rules protect.**
 
-- Pack voltage
-- Cell voltages
-- Current
-- Battery temperature
-- Ambient temperature
-- Gas sensor status
+ML is used for predictive intelligence such as:
+
 - SOC
 - SOH
 - RUL
-- Risk status
-- Recommended action
+- anomaly-related intelligence
+
+Deterministic rules are used for safety-critical decisions such as:
+
+- critical cell voltage
+- dead-cell conditions
+- dead-pack conditions
+- critical temperature
+- alert severity
+- replacement recommendations
+
+This separation makes the architecture easier to explain, audit, and demonstrate.
 
 ---
 
-# 103. Battery Visualization
+# 🚨 Cell-Level Diagnostics
 
-The frontend represents the three cells individually.
+THE_BLACK_BOX does not stop at:
+
+> "Battery unhealthy."
+
+It attempts to answer:
+
+> **"Which cell is responsible?"**
 
 Example:
 
-Cell 1
+```text
+Cell 1 → 3.61 V → Healthy
+Cell 2 → 3.57 V → Healthy
+Cell 3 → 2.91 V → Critical
+```
 
-Cell 2
-
-Cell 3
-
-Each cell can be associated with a health state.
-
-Possible visual states include:
-
-- Healthy
-- Warning
-- Critical
-- Failed
-
-This makes cell-level diagnosis easier to understand.
+The system can then associate the abnormal condition with the affected cell and generate an appropriate maintenance recommendation according to the configured safety rules.
 
 ---
 
-# 104. Cell Detail Panel
+# 📊 Battery Intelligence Layer
 
-The cell detail interface can display:
+The final output is a structured battery-health decision:
 
-- Cell voltage
-- Relative cell condition
-- Voltage imbalance
-- Cell status
-- Fault indication
-- Recommended action
+```text
+RAW TELEMETRY
+      ↓
+FEATURE ENGINEERING
+      ↓
+XGBOOST PREDICTION
+      ↓
+SAFETY / RULE ENGINE
+      ↓
+RISK CLASSIFICATION
+      ↓
+CELL DIAGNOSIS
+      ↓
+RECOMMENDED ACTION
+```
 
-If one cell is critically low, the interface identifies that specific cell.
+Possible action categories include:
 
----
-
-# 105. Battery Health Gauge
-
-The health interface can present:
-
-SOC
-
-SOH
-
-RUL
-
-These provide a compact view of current battery condition and predicted future usability.
-
----
-
-# 106. Analytics
-
-The analytics section provides deeper information such as:
-
-- Voltage trends
-- Temperature trends
-- Cell imbalance
-- SOH degradation
-- Thermal risk
-- Predictive failure
-- Anomaly detection
-- Battery reasoning
+- Continue monitoring
+- Recharge battery
+- Inspect battery
+- Inspect specific cell
+- Replace affected cell
+- Replace complete pack
+- Escalate as critical
 
 ---
 
-# 107. Cell Imbalance Analytics
+# ☁️ Cloud & Data Architecture
 
-Cell imbalance is displayed separately because total pack voltage alone can hide individual-cell problems.
+THE_BLACK_BOX uses cloud services as part of the telemetry and application architecture.
 
-The interface can compare:
+### Firebase
 
-Cell 1
-
-Cell 2
-
-Cell 3
-
-and show the difference between the highest and lowest cell voltage.
-
----
-
-# 108. Voltage Degradation
-
-Voltage trends can be plotted over time.
-
-The objective is to identify:
-
-- Voltage decline
-- Cell divergence
-- Discharge behavior
-- Abnormal voltage changes
-
----
-
-# 109. Temperature Analytics
-
-Temperature analytics can show:
-
-- Battery temperature
-- Ambient temperature
-- Temperature rise
-- Maximum temperature
-- Thermal-risk classification
-
----
-
-# 110. Gas Analytics
-
-Gas sensor data can be monitored over time.
-
-The system focuses particularly on changes in the signal.
-
-A sudden change can be combined with temperature and electrical measurements for anomaly detection.
-
----
-
-# 111. Predictive Failure Analysis
-
-Predictive failure analysis combines:
-
-- Current battery condition
-- SOH
-- RUL
-- Cell imbalance
-- Temperature
-- Anomaly information
-
-The objective is to identify developing failure conditions before they become severe.
-
----
-
-# 112. Battery Reports
-
-The frontend can provide battery reports containing:
-
-- Current health
-- Cell status
-- Predictions
-- Anomalies
-- Risk
-- Recommended actions
-
-This can support maintenance decisions.
-
----
-
-# 113. AI Battery Reasoning
-
-The frontend contains AI reasoning interfaces.
-
-The AI can convert technical measurements into understandable explanations.
-
-For example:
-
-Instead of displaying only:
-
-Cell 3 = 0.2 V
-
-the system can explain:
-
-Cell 3 is significantly below the expected operating range and has been identified as the affected cell. The recommended action is to isolate and inspect or replace Cell 3 according to the configured safety procedure.
-
----
-
-# 114. AI Chatbot
-
-The frontend includes an AI chatbot.
-
-The chatbot communicates with the backend AI service.
-
-The backend can use Azure OpenAI to generate explanations based on the battery context.
-
-The chatbot is intended to help users understand:
-
-- Battery status
-- Health predictions
-- Anomalies
-- Risk
-- Recommended action
-
----
-
-# 115. Backend API
-
-FastAPI provides the application programming interface between the frontend and backend services.
-
-The backend includes routes for:
+Configured Firebase services can support:
 
 - Authentication
-- Battery data
+- Realtime/application data
+- Telemetry integration
+
+### Supabase
+
+Supabase is used as the primary backend database layer for configured application data such as:
+
 - Telemetry
-- Analytics
-- Predictions
-- Alerts
-- AI services
-- Supabase access
-
----
-
-# 116. Authentication
-
-The application contains authentication services.
-
-Authentication functionality is separated into:
-
-- Controller
-- Middleware
-- Routes
-- Firebase configuration
-
-This allows protected application functionality to be separated from public interfaces.
-
----
-
-# 117. Telemetry Routes
-
-Telemetry routes provide access to battery sensor data.
-
-The telemetry pipeline handles incoming battery information and passes it to the processing layer.
-
----
-
-# 118. Battery Routes
-
-Battery routes provide battery-specific information to the frontend.
-
-These routes can expose:
-
-- Battery identification
-- Battery status
-- Cell information
-- Pack information
-- Battery metrics
-
----
-
-# 119. Prediction Routes
-
-Prediction routes expose ML outputs.
-
-Examples include:
-
-- SOC
-- SOH
-- RUL
-- anomaly information
-- risk status
-
----
-
-# 120. Analytics Routes
-
-Analytics routes expose derived battery information used by frontend graphs and analytical components.
-
----
-
-# 121. Alert Routes
-
-Alert routes expose alert history and critical battery events.
-
-This allows the frontend to display notifications and historical incidents.
-
----
-
-# 122. Feature Service
-
-The feature service is responsible for converting raw telemetry into the feature representation required by the ML models.
-
-This is critical because training and inference must use consistent feature definitions.
-
----
-
-# 123. ML Service
-
-The ML service is responsible for:
-
-- Loading trained models
-- Preparing prediction features
-- Performing inference
-- Handling prediction failures
-- Returning model outputs
-
----
-
-# 124. Prediction Service
-
-The prediction service coordinates prediction logic and can combine:
-
-- ML outputs
-- Battery measurements
-- Safety rules
-- Risk calculations
-
----
-
-# 125. Alert Service
-
-The alert service evaluates critical battery conditions and generates alert events.
-
-It includes special handling for:
-
-- Dead cells
-- Dead battery packs
-- Critical voltage
-- Critical temperatures
-- Other configured anomalies
-
----
-
-# 126. Email Alerts
-
-Email alerts can be sent through SMTP/Gmail configuration.
-
-The system stores alert events so notification failures do not stop the primary battery pipeline.
-
----
-
-# 129. Alert Severity
-
-Alerts can be categorized by severity.
-
-Example levels:
-
-- INFO
-- LOW
-- WARNING
-- HIGH
-- CRITICAL
-
-A critically failed cell is handled as a critical event.
-
----
-
-# 130. Critical Cell Alert
-
-When an individual cell reaches the configured dead-cell threshold:
-
-The system:
-
-1. Identifies the cell.
-2. Sets critical severity.
-3. Generates an alert.
-4. Records the event.
-5. Produces a replacement recommendation.
-6. Sends configured notifications.
-
----
-
-# 131. Dead Pack Alert
-
-When the configured dead-pack condition is reached:
-
-The system:
-
-1. Identifies the pack condition.
-2. Sets critical severity.
-3. Generates the dead-pack protocol.
-4. Records the event.
-5. Sends configured notifications.
-
----
-
-# 132. Alert Tracker
-
-Alert history can be stored in Supabase.
-
-The alert tracker allows the system to retain information about previous critical events.
-
-This supports:
-
-- Audit history
-- Debugging
-- Maintenance history
-- Notification tracking
-
----
-
-# 133. External Service Resilience
-
-External services may fail.
-
-For example:
-
-- SMTP credentials may be invalid.
-- AI API may be temporarily unavailable.
-
-The battery monitoring pipeline should continue operating even when an external service fails.
-
----
-
-# 134. Error Handling
-
-The backend includes error handling to prevent a single service failure from stopping the complete application.
-
-Examples include:
-
-- Invalid sensor values
-- Null values
-- String-formatted numeric values
-- Missing fields
-- External service failures
-- ML inference errors
-
----
-
-# 135. Safe Numeric Parsing
-
-Sensor values may arrive as:
-
-"0"
-
-"0.0"
-
-12.3
-
-or null.
-
-The backend therefore uses safe numeric conversion before performing calculations.
-
-This prevents runtime type errors.
-
----
-
-# 136. Division-by-Zero Protection
-
-Derived calculations such as:
-
-C-rate
-
-Resistance proxy
-
-and other ratios must avoid division by zero.
-
-The backend therefore validates denominators before calculation.
-
----
-
-# 137. Database
-
-Supabase provides the primary cloud database layer used by the backend.
-
-The database stores relevant telemetry and application information.
-
-Possible categories include:
-
-- Battery telemetry
 - Predictions
 - Alerts
 - Historical records
@@ -1164,166 +392,582 @@ Possible categories include:
 
 ---
 
-# 138. Data Flow Through Supabase
-
-The typical flow is:
-
-Sensor data
-
-↓
-
-Supabase
-
-↓
-
-Backend reads latest telemetry
-
-↓
-
-Feature service
-
-↓
-
-ML + safety engine
-
-↓
-
-Prediction
-
-↓
-
-Prediction/alert records
-
-↓
-
-Frontend
-
----
-
-# 139. Firebase
-
-Firebase services are integrated into the project where configured.
-
-Firebase can support:
-
-- Authentication
-- Realtime data
-- Application services
-
-The backend includes Firebase service configuration.
-
----
-
-# 140. Environment Variables
-
-Sensitive configuration is stored in environment variables.
-
-Examples include:
-
-SUPABASE_URL
-
-SUPABASE_KEY
-
-FIREBASE_PROJECT_ID
-
-FIREBASE_DATABASE_URL
-
-FIREBASE_PRIVATE_KEY
-
-FIREBASE_CLIENT_EMAIL
-
-GMAIL_USER
-
-GMAIL_APP_PASSWORD
-
-ALERT_RECIPIENT_EMAIL
-
-AZURE_OPENAI_API_KEY
-
-AZURE_OPENAI_ENDPOINT
-
-AZURE_OPENAI_DEPLOYMENT
-
----
-
-# 141. Security Principle
-
-Real secrets must never be committed to a public GitHub repository.
-
-The project therefore uses:
-
-.env
-
-for local secrets
-
-and:
-
-.env.example
-
-for safe configuration documentation.
-
----
-
-# 142. .env.example
-
-The repository contains an example environment file containing placeholder values.
-
-It allows developers to understand which configuration values are required without exposing real credentials.
-
----
-
-# 143. Git Security
-
-The `.gitignore` file protects:
-
-- .env
-- service account keys
-- ML model binaries
-- datasets
-- logs
-- virtual environments
-- node_modules
-- generated build files
-
-The actual secret files remain outside version control.
-
----
-
-# 144. GitHub
-
-The project is maintained in the GitHub repository:
-
-THE-BLACK-BOX
-
-The repository contains the application source code and development pipeline.
-
-Sensitive local configuration is excluded.
-
----
-
-# 145. Repository Structure
+# 🔄 Complete Data Flow
 
 ```text
-THE BLACK BOX/
-|
-|-- ML/
-|   |-- firebase/
-|   |-- prediction/
-|   `-- training/
-|
-|-- THEBLACKBOX_ALERT/
-|
-|-- ai_test/
-|
-|-- backend/
-|   |-- authentication/
-|   |-- routes/
-|   `-- services/
-|
-|-- frontend/
-|   |-- public/
-|   `-- src/
-|
-|-- .env.example
-|-- .gitignore
-`-- README.md
+                 ┌─────────────────┐
+                 │  3S BATTERY PACK│
+                 └────────┬────────┘
+                          │
+                          ▼
+              ┌───────────────────────┐
+              │ SENSORS               │
+              │ V1 V2 V3              │
+              │ Current               │
+              │ Temperature           │
+              │ Ambient Temperature   │
+              │ MQ-135                │
+              └───────────┬───────────┘
+                          │
+                          ▼
+                 ┌────────────────┐
+                 │  ARDUINO DUE   │
+                 │   Acquisition  │
+                 └───────┬────────┘
+                         │
+                         ▼
+                ┌──────────────────┐
+                │ CLOUD TELEMETRY  │
+                │ Firebase /       │
+                │ Supabase         │
+                └────────┬─────────┘
+                         │
+                         ▼
+                ┌──────────────────┐
+                │  FASTAPI BACKEND │
+                └────────┬─────────┘
+                         │
+                         ▼
+                ┌──────────────────┐
+                │ FEATURE SERVICE  │
+                └────────┬─────────┘
+                         │
+                ┌────────┴─────────┐
+                ▼                  ▼
+        ┌───────────────┐  ┌─────────────────┐
+        │ XGBOOST MODEL │  │ SAFETY ENGINE   │
+        │ SOC/SOH/RUL   │  │ Thresholds      │
+        │ ML inference  │  │ Critical rules  │
+        └───────┬───────┘  └────────┬────────┘
+                │                   │
+                └─────────┬─────────┘
+                          ▼
+                ┌──────────────────┐
+                │ BATTERY DECISION │
+                │ HEALTH / RISK    │
+                │ CELL / ACTION    │
+                └────────┬─────────┘
+                         │
+              ┌──────────┼──────────┐
+              ▼          ▼          ▼
+          Dashboard    Alerts     AI Explain
+              │          │          │
+              └──────────┴──────────┘
+                         │
+                         ▼
+                    END USER
+```
+
+---
+
+# 🖥️ Frontend
+
+The web application is built using:
+
+- React
+- TypeScript
+- Vite
+
+### Main interfaces
+
+- Dashboard
+- Battery details
+- Cell diagnostics
+- Analytics
+- Reports
+- Alerts
+- Settings
+- Authentication
+- AI assistant
+- Battery visualization
+
+---
+
+# 📈 Dashboard
+
+The dashboard brings the most important battery information together:
+
+```text
+┌──────────────────────────────────────────────┐
+│              BATTERY HEALTH                  │
+├──────────────────────────────────────────────┤
+│ Pack Voltage     Cell Status      Risk       │
+│ Current          Temperature      SOC        │
+│ SOH              RUL              Alerts     │
+├──────────────────────────────────────────────┤
+│              CELL DIAGNOSTICS                │
+│   Cell 1       Cell 2       Cell 3           │
+│   Healthy      Healthy      Warning/Critical │
+├──────────────────────────────────────────────┤
+│              RECOMMENDED ACTION              │
+└──────────────────────────────────────────────┘
+```
+
+---
+
+# 🧪 Analytics
+
+The analytics layer can expose:
+
+- Cell voltage trends
+- Pack voltage
+- Current behavior
+- Temperature trends
+- Ambient temperature
+- Temperature rise
+- Cell imbalance
+- SOH degradation
+- RUL prediction
+- Anomaly information
+- Battery reasoning
+
+---
+
+# 🧠 AI Explanation Layer
+
+The AI interface is designed to translate technical battery outputs into understandable explanations.
+
+Instead of only showing:
+
+```text
+Cell 3 = 2.91 V
+```
+
+the system can provide contextual reasoning such as:
+
+```text
+Cell 3 has been identified as the affected cell because
+its voltage is significantly lower than the other cells.
+The configured safety logic recommends inspection or
+replacement according to the detected severity.
+```
+
+The AI layer is therefore an **explanation interface**, while deterministic safety rules remain responsible for safety-critical decisions.
+
+---
+
+# 🔔 Alerts
+
+The alert layer can classify events using severity levels such as:
+
+```text
+INFO
+LOW
+WARNING
+HIGH
+CRITICAL
+```
+
+Critical events can be recorded and surfaced through the configured notification pipeline.
+
+### Example critical workflow
+
+```text
+Abnormal telemetry
+       ↓
+Rule evaluation
+       ↓
+Critical condition?
+       ↓ YES
+Identify affected cell / pack
+       ↓
+Create alert
+       ↓
+Persist event
+       ↓
+Notify configured recipient
+       ↓
+Show on dashboard
+```
+
+---
+
+# 📜 Reports
+
+THE_BLACK_BOX can generate battery-health reports containing:
+
+- Current battery condition
+- Cell-level status
+- SOC
+- SOH
+- RUL
+- Anomalies
+- Risk classification
+- Recommended action
+- Battery reasoning
+
+This transforms raw telemetry into a maintenance-oriented document.
+
+---
+
+# 🛠️ Backend Architecture
+
+The backend is implemented with **Python + FastAPI**.
+
+Conceptually:
+
+```text
+backend/
+├── authentication/
+├── routes/
+│   ├── battery
+│   ├── telemetry
+│   ├── analytics
+│   ├── predictions
+│   ├── alerts
+│   └── AI
+└── services/
+    ├── feature engineering
+    ├── ML inference
+    ├── prediction
+    ├── alerts
+    └── database integration
+```
+
+The exact route names and module organization should be treated as implementation-specific and may evolve with the codebase.
+
+---
+
+# 🧰 Technology Stack
+
+| Layer | Technology |
+|---|---|
+| Hardware | Arduino Due |
+| Battery | 3S Li-ion |
+| Cell sensing | Voltage sensor modules |
+| Temperature | Temperature sensors |
+| Gas sensing | MQ-135 |
+| Backend | Python |
+| API | FastAPI |
+| ML | XGBoost |
+| Frontend | React |
+| Language | TypeScript |
+| Build Tool | Vite |
+| Cloud Data | Supabase / Firebase where configured |
+| Authentication | Firebase where configured |
+| AI Explanation | Azure OpenAI where configured |
+| Alerts | SMTP/Gmail where configured |
+| Repository | GitHub |
+
+---
+
+# 🔐 Security
+
+Secrets must never be committed to source control.
+
+Use environment variables for sensitive configuration:
+
+```text
+SUPABASE_URL
+SUPABASE_KEY
+FIREBASE_PROJECT_ID
+FIREBASE_DATABASE_URL
+FIREBASE_PRIVATE_KEY
+FIREBASE_CLIENT_EMAIL
+GMAIL_USER
+GMAIL_APP_PASSWORD
+ALERT_RECIPIENT_EMAIL
+AZURE_OPENAI_API_KEY
+AZURE_OPENAI_ENDPOINT
+AZURE_OPENAI_DEPLOYMENT
+```
+
+Use:
+
+```text
+.env
+```
+
+for real local/deployment secrets and:
+
+```text
+.env.example
+```
+
+for safe documentation.
+
+---
+
+# 🧪 Robustness & Error Handling
+
+The backend is designed to handle real telemetry conditions such as:
+
+- Missing values
+- Null sensor values
+- Numeric strings
+- Invalid numeric input
+- Division by zero
+- ML inference errors
+- Database failures
+- External AI-service failures
+- Notification failures
+
+External services should not unnecessarily stop the core battery-monitoring pipeline.
+
+---
+
+# 📁 Repository Structure
+
+```text
+THE-BLACK-BOX/
+│
+├── ML/
+│   ├── firebase/
+│   ├── prediction/
+│   └── training/
+│
+├── THEBLACKBOX_ALERT/
+│
+├── ai_test/
+│
+├── backend/
+│   ├── authentication/
+│   ├── routes/
+│   └── services/
+│
+├── frontend/
+│   ├── public/
+│   └── src/
+│
+├── assets/
+│   └── hardware-prototype.png
+│
+├── .env.example
+├── .gitignore
+└── README.md
+```
+
+---
+
+# ▶️ Getting Started
+
+## 1. Clone the repository
+
+```bash
+git clone <YOUR_REPOSITORY_URL>
+cd THE-BLACK-BOX
+```
+
+## 2. Backend environment
+
+Create the environment file:
+
+```bash
+cp .env.example .env
+```
+
+Fill in the required service configuration.
+
+## 3. Install backend dependencies
+
+Use the project's existing Python dependency configuration.
+
+Example:
+
+```bash
+pip install -r requirements.txt
+```
+
+## 4. Start the FastAPI backend
+
+Use the project's configured FastAPI entry point.
+
+A typical development command is:
+
+```bash
+uvicorn <backend_entrypoint>:app --reload
+```
+
+> Replace `<backend_entrypoint>` with the actual entry module in the repository.
+
+## 5. Start the frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+---
+
+# 📡 Live Firebase Telemetry
+
+For demonstrations and debugging, the latest Firebase telemetry can also be surfaced in a terminal-style view.
+
+Example:
+
+```text
+Firebase Live Data
+------------------
+Voltage:      11.82 V
+Current:       1.43 A
+Temperature:  29.4 °C
+SOC:          78.6 %
+SOH:          94.2 %
+Cycle:        247
+Timestamp:    2026-08-13 18:48:21
+```
+
+This provides a simple way to verify that the cloud telemetry pipeline is receiving the latest battery data.
+
+---
+
+# 🏆 What Makes THE_BLACK_BOX Different?
+
+### 1. Cell-level visibility
+
+The system does not rely only on total pack voltage.
+
+### 2. Predictive instead of purely reactive
+
+The system combines historical and current battery features with XGBoost prediction.
+
+### 3. Engineering + AI
+
+The architecture combines:
+
+```text
+Electrical Engineering
+        +
+Feature Engineering
+        +
+Machine Learning
+        +
+Deterministic Safety
+        +
+Cloud Computing
+        +
+AI Explanation
+```
+
+### 4. Action-oriented output
+
+The goal is not just:
+
+> "Battery = 72%"
+
+The goal is:
+
+> **"Battery health is deteriorating, Cell 3 is the likely affected cell, the risk is high, and the configured maintenance action is inspection/replacement."**
+
+### 5. Explainable decision flow
+
+The system preserves the chain:
+
+```text
+Sensor
+  ↓
+Feature
+  ↓
+Prediction
+  ↓
+Rule
+  ↓
+Risk
+  ↓
+Cell
+  ↓
+Action
+```
+
+That makes the platform easier to demonstrate and audit.
+
+---
+
+# 📌 Key Project Value
+
+THE_BLACK_BOX transforms a battery from a **passive energy source** into a **measurable, diagnosable and predictive asset**.
+
+Instead of waiting for:
+
+```text
+Battery Failure
+      ↓
+Unexpected Shutdown
+      ↓
+Manual Inspection
+```
+
+the intended workflow is:
+
+```text
+Continuous Monitoring
+        ↓
+Early Detection
+        ↓
+Prediction
+        ↓
+Cell-Level Diagnosis
+        ↓
+Risk Assessment
+        ↓
+Preventive Action
+```
+
+---
+
+# 🔮 Future Scalability
+
+The current prototype is a 3S battery system, but the architecture can be extended toward:
+
+- Larger battery packs
+- More cells
+- Battery modules
+- EV battery monitoring
+- Energy-storage systems
+- Robotics
+- Industrial backup systems
+- Fleet-level battery analytics
+- Remote predictive maintenance
+- Battery service history
+- Multi-battery dashboards
+- Edge inference
+- Advanced digital-twin capabilities
+
+The key scalability principle is to preserve the same pipeline:
+
+```text
+More Sensors
+     ↓
+More Telemetry
+     ↓
+More Features
+     ↓
+Same Intelligence Architecture
+     ↓
+More Batteries / Modules
+```
+
+---
+
+# ⚠️ Safety Note
+
+THE_BLACK_BOX is a prototype and engineering/research platform.
+
+Battery thresholds, charging limits, fault rules, and replacement decisions must be validated against the specific battery chemistry, cell manufacturer specifications, protection circuitry, and applicable safety standards before deployment in a production or safety-critical system.
+
+The MQ-135 signal is an abnormal-condition indicator and should not be interpreted as a laboratory-grade measurement of a specific battery gas concentration.
+
+---
+
+# 👥 Project
+
+**THE_BLACK_BOX**
+
+### AI-Powered Battery Health, Predictive Maintenance & Cell-Level Diagnostics
+
+Built around the principle:
+
+> **Don't just monitor the battery. Understand the battery.**
+
+---
+
+## 🔖 Keywords / Tags
+
+`battery-monitoring` `battery-management` `BMS` `battery-health` `battery-diagnostics` `predictive-maintenance` `lithium-ion` `li-ion` `3S-battery` `cell-level-diagnostics` `SOC` `SOH` `RUL` `XGBoost` `machine-learning` `anomaly-detection` `Arduino-Due` `IoT` `Firebase` `Supabase` `FastAPI` `React` `TypeScript` `Vite` `AI` `Azure-OpenAI` `battery-analytics` `smart-battery` `embedded-systems` `cloud-monitoring`
+
+---
+
+## ⭐ Project Pitch
+
+**THE_BLACK_BOX is an AI-powered battery intelligence platform that combines real-time cell-level sensing, engineered battery-health features, XGBoost prediction, deterministic safety rules, cloud telemetry, alerts, analytics, and AI explanations to move battery monitoring from simple measurement to pred

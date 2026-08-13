@@ -1028,20 +1028,6 @@ The system stores alert events so notification failures do not stop the primary 
 
 ---
 
-# 127. SMS Alerts
-
-Twilio can be used for SMS alerts.
-
-A critical battery condition can trigger an SMS notification to the configured recipient.
-
----
-
-# 128. WhatsApp Alerts
-
-Twilio WhatsApp integration can also be configured for critical notifications.
-
----
-
 # 129. Alert Severity
 
 Alerts can be categorized by severity.
@@ -1109,7 +1095,6 @@ External services may fail.
 For example:
 
 - SMTP credentials may be invalid.
-- Twilio may be unavailable.
 - AI API may be temporarily unavailable.
 
 The battery monitoring pipeline should continue operating even when an external service fails.
@@ -1246,14 +1231,6 @@ FIREBASE_DATABASE_URL
 FIREBASE_PRIVATE_KEY
 
 FIREBASE_CLIENT_EMAIL
-
-TWILIO_ACCOUNT_SID
-
-TWILIO_AUTH_TOKEN
-
-TWILIO_SMS_FROM
-
-TWILIO_SMS_TO
 
 GMAIL_USER
 

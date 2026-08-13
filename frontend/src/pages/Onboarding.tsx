@@ -70,7 +70,7 @@ export function Onboarding() {
             {/* Indian Mobile Number Input */}
             <div className="mt-5">
               <Label htmlFor="ob-phone" className="text-xs font-bold text-foreground">
-                Indian Mobile Number (for Alert Routing & SMS/Email Alerts)
+                Indian Mobile Number (for Profile & Alert Routing)
               </Label>
               <div className="relative mt-1.5">
                 <Phone className="absolute left-3 top-2.5 h-4 w-4 text-faint" />

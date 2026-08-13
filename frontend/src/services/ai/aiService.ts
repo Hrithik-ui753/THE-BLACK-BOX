@@ -203,7 +203,7 @@ Check physical cell holder contacts if ΔT = 0°C and no heat is present; isolat
       cellIndex: null,
       timestamp: Date.now(),
       headline: `${battery.name} is ${pack.status === 'healthy' ? 'healthy' : `in a ${pack.status} state`} at ${pack.soh !== null && pack.soh !== undefined ? fmtPct(pack.soh) : '--'} SOH.`,
-      explanation: `Pack voltage ${fmtV(pack.voltage)}, average temperature ${fmtTemp(pack.temperature)}, ${pack.cycleCount} cycles. The model projects ${fmtPct(pred.predictedSoh)} SOH in ${pred.horizonDays} days with ${Math.round(pred.confidence * 100)}% confidence.`,
+      explanation: `Pack voltage ${fmtV(pack.voltage)}, average temperature ${fmtTemp(pack.temperature)}, ${pack.cycleCount} cycles. The ML model projects ${fmtPct(pred.predictedSoh)} SOH over ${pred.horizonDays} days under current operating duty cycles.`,
       recommendation:
         pack.status === 'healthy'
           ? 'Continue standard monitoring. No intervention required.'

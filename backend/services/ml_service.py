@@ -241,37 +241,99 @@ class MLService:
         imbalance_v = feature_dict.get("cell_voltage_imbalance_V", 0.0)
         temp_c = float(feature_dict.get("avg_temperature_C", 27.0))
 
+        # 5. Derive System Health & Anomaly Label
+        min_cell_v = min(present_voltages) if present_voltages else 0.0
+        imbalance_v = feature_dict.get("cell_voltage_imbalance_V", 0.0)
+        temp_c = float(feature_dict.get("avg_temperature_C", 27.0))
+
+        anomaly_source = "ML_PREDICTED"
+
         if present_count < 3:
             anomaly_label = "open_circuit_removed_cell"
+            anomaly_source = "RULE_BASED"
             anomaly_confidence = 99.0
             system_status = "CRITICAL"
         elif min_cell_v <= 0.50:
             anomaly_label = "dead_cell_detected"
+            anomaly_source = "RULE_BASED"
             anomaly_confidence = 99.0
             system_status = "CRITICAL"
             predicted_soc = 0.0
-        elif min_cell_v <= 2.5 or imbalance_v >= 0.60 or temp_c >= 55.0 or predicted_anomaly in ["critical_failure", "thermal_runaway"]:
-            system_status = "CRITICAL" if (min_cell_v <= 2.0 or predicted_anomaly in ["critical_failure", "thermal_runaway"]) else "ANOMALY"
-            anomaly_label = predicted_anomaly
-        elif min_cell_v <= 3.0 or imbalance_v >= 0.30 or temp_c >= 45.0 or predicted_soh < 80.0 or predicted_anomaly != "normal":
+        elif min_cell_v <= 2.5 or imbalance_v >= 0.60 or temp_c >= 55.0:
+            system_status = "CRITICAL" if (min_cell_v <= 2.0) else "ANOMALY"
+            if predicted_anomaly == "normal":
+                anomaly_label = "high_imbalance_or_voltage_drop"
+                anomaly_source = "RULE_BASED"
+            else:
+                anomaly_label = predicted_anomaly
+                anomaly_source = "ML_PREDICTED"
+        elif min_cell_v <= 3.0 or imbalance_v >= 0.30 or temp_c >= 45.0 or predicted_soh < 80.0:
             system_status = "WARNING"
-            anomaly_label = predicted_anomaly
+            if predicted_anomaly == "normal":
+                anomaly_label = "mild_voltage_deviation"
+                anomaly_source = "RULE_BASED"
+            else:
+                anomaly_label = predicted_anomaly
+                anomaly_source = "ML_PREDICTED"
         else:
             system_status = "NORMAL"
             anomaly_label = predicted_anomaly
+            anomaly_source = "ML_PREDICTED" if (self.anomaly_model and self.anomaly_encoder) else "RULE_BASED"
+
+        # 6. RUL Availability Check
+        rul_available = (self.rul_model is not None) and (present_count > 0) and (predicted_rul is not None) and (predicted_rul >= 0)
+
+        # 7. Model Metadata Assembly
+        model_metadata = {
+            "soc_model": {
+                "name": "SOC Model",
+                "algorithm": "RandomForestRegressor",
+                "target": "SoC_pct",
+                "source": "ML inference",
+                "version": "2.0",
+                "features": SOC_FEATURES
+            },
+            "soh_model": {
+                "name": "SOH Model",
+                "algorithm": "RandomForestRegressor",
+                "target": "SoH_pct",
+                "source": "ML inference",
+                "version": "2.0",
+                "features": self.soh_features if self.soh_features else SOC_FEATURES
+            },
+            "rul_model": {
+                "name": "RUL Model",
+                "algorithm": "RandomForestRegressor" if self.rul_model else "Not Deployed",
+                "target": "rul_to_80_cycles",
+                "source": "ML inference" if rul_available else "Prediction unavailable (Model not deployed)",
+                "version": "2.0" if self.rul_model else "N/A",
+                "features": self.rul_features if self.rul_features else []
+            },
+            "anomaly_model": {
+                "name": "Anomaly Model / Detection",
+                "algorithm": "RandomForestClassifier" if anomaly_source == "ML_PREDICTED" else "Engineering Threshold Logic",
+                "target": "anomaly_label",
+                "source": anomaly_source,
+                "version": "2.0",
+                "features": ANOMALY_FEATURES
+            }
+        }
 
         return {
             "soc": predicted_soc if present_count > 0 else None,
             "soh": predicted_soh if present_count > 0 else None,
-            "rul_cycles": int(predicted_rul) if present_count > 0 else None,
+            "rul_cycles": int(predicted_rul) if rul_available else None,
+            "rul_available": rul_available,
             "anomaly": anomaly_label,
+            "anomaly_source": anomaly_source,
             "anomaly_confidence": anomaly_confidence,
             "system_status": system_status,
             "cells": cell_predictions,
             "cell1_status": cell_statuses[0],
             "cell2_status": cell_statuses[1],
             "cell3_status": cell_statuses[2],
-            "present_cells": f"{present_count}/3"
+            "present_cells": f"{present_count}/3",
+            "model_metadata": model_metadata
         }
 
 

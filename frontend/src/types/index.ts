@@ -96,6 +96,55 @@ export interface NotificationItem {
 
 export type ReportType = 'health' | 'cell' | 'prediction' | 'safety'
 
+export type MetricSource = 'MEASURED' | 'CALCULATED' | 'ML PREDICTED' | 'RULE-BASED' | 'AI GENERATED' | 'UNAVAILABLE'
+
+export interface ModelMetadataItem {
+  name: string
+  algorithm: string
+  target: string
+  source: string
+  version: string
+  features?: string[]
+}
+
+export interface DiagnosticReport {
+  reportId: string
+  batteryId: string
+  batteryName?: string
+  date: number
+  status: BatteryStatus
+  isValid: boolean
+  validationMessage?: string
+  predictionSource: string
+  mlPredictions: {
+    soc: { value: number | null; formatted: string; label: string; sourceTag: MetricSource }
+    soh: { value: number | null; formatted: string; label: string; sourceTag: MetricSource }
+    rul: { value: number | null; formatted: string; available: boolean; statusNote: string; label: string; sourceTag: MetricSource }
+    anomaly: { value: string; formatted: string; sourceType: string; label: string; sourceTag: MetricSource }
+  }
+  measuredTelemetry: {
+    cell1Voltage: { value: number; formatted: string; label: string; sourceTag: MetricSource }
+    cell2Voltage: { value: number; formatted: string; label: string; sourceTag: MetricSource }
+    cell3Voltage: { value: number; formatted: string; label: string; sourceTag: MetricSource }
+    temperature: { value: number; formatted: string; label: string; sourceTag: MetricSource }
+    cycleCount: { value: number; formatted: string; label: string; sourceTag: MetricSource }
+    packVoltage: { value: number; formatted: string; label: string; sourceTag: MetricSource }
+    timestamp: { value: string; formatted: string; label: string; sourceTag: MetricSource }
+  }
+  calculatedMetrics: {
+    minCellVoltage: { value: number; formatted: string; label: string; sourceTag: MetricSource }
+    maxCellVoltage: { value: number; formatted: string; label: string; sourceTag: MetricSource }
+    averageCellVoltage: { value: number; formatted: string; label: string; sourceTag: MetricSource; formula?: string }
+    cellVoltageSpread: { value: number; formatted: string; label: string; sourceTag: MetricSource; formula?: string }
+  }
+  aiExplanation: {
+    executiveSummary: string
+    aiExplanation: { text: string; sourceTag: MetricSource; engine: string }
+    ruleBasedRecommendation: { actions: string[]; sourceTag: MetricSource; engine: string }
+  }
+  modelMetadata: Record<string, ModelMetadataItem>
+}
+
 export interface Report {
   id: string
   type: ReportType
@@ -107,6 +156,7 @@ export interface Report {
   findings: string[]
   metrics: Record<string, string>
   actions?: string[]
+  diagnosticData?: DiagnosticReport
 }
 
 export interface SettingsState {

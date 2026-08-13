@@ -1,4 +1,4 @@
-﻿fastapi
+fastapi
 uvicorn[standard]
 python-dotenv
 firebase-admin
@@ -6,7 +6,6 @@ supabase==2.31.0
 requests
 httpx
 pydantic
-twilio
 openai
 xgboost
 scikit-learn

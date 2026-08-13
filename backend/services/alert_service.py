@@ -1,7 +1,7 @@
 import logging
 from typing import Dict, Any, Optional
 
-from email_alert_service import email_service, sms_service, alert_tracker
+from email_alert_service import email_service, alert_tracker
 from config import DEFAULT_BATTERY_ID, CELL_ABSENT_THRESHOLD
 
 logger = logging.getLogger(__name__)
@@ -19,7 +19,7 @@ class AlertService:
         """
         Evaluates battery telemetry, derived features, and ML predictions.
         If a Warning or Critical condition occurs, checks deduplication rules
-        and sends a Gmail alert (+ optional SMS).
+        and sends a Gmail alert via SMTP.
         """
         try:
             c1 = float(sensor_data.get("cell1_voltage_v") if sensor_data.get("cell1_voltage_v") is not None else 3.799)
@@ -72,40 +72,33 @@ class AlertService:
             severity = "CRITICAL"
             detected_prob = f"🚨 DEAD BATTERY PACK: Net voltage is {total_v:.2f} V (0.00 V / depleted). All cells are drained or disconnected!"
             rec_action = "IMMEDIATELY ISOLATE PACK. Check physical cell contact terminals and inspect cells before recharging."
-            sms_msg = f"🚨 THE BLACK BOX CRITICAL: Battery pack is DEAD ({total_v:.2f}V). Disconnect immediately!"
         elif removed_cells:
             severity = "CRITICAL"
             removed_indices = [str(c["index"]) for c in removed_cells]
             detected_prob = f"🔌 CELL REMOVED / DISCONNECTED: Cell(s) {', '.join(removed_indices)} reading floating open-circuit voltage ({min_v:.2f} V ~0.07 V). Cell appears physically REMOVED or DISCONNECTED from holder!"
             rec_action = f"Check physical cell holder contact and re-insert Cell(s) {', '.join(removed_indices)} securely."
-            sms_msg = f"🔌 THE BLACK BOX ALERT: Cell(s) {', '.join(removed_indices)} REMOVED/DISCONNECTED (Floating {min_v:.2f}V). Check contact!"
         elif zero_cells:
             severity = "CRITICAL"
             zero_indices = [str(c["index"]) for c in zero_cells]
             detected_prob = f"🚨 CRITICAL DEAD CELL: Cell(s) {', '.join(zero_indices)} voltage is {min_v:.2f} V (depleted / dead cell under load). Replace Cell(s) {', '.join(zero_indices)} immediately!"
             rec_action = f"Isolate battery pack and REPLACE Cell(s) {', '.join(zero_indices)} before operating!"
-            sms_msg = f"🚨 THE BLACK BOX CRITICAL: Cell(s) {', '.join(zero_indices)} is DEAD ({min_v:.2f}V). Replace immediately!"
         elif is_low_net_v:
             severity = "CRITICAL"
             detected_prob = f"⚠️ CRITICAL LOW VOLTAGE: Battery net pack voltage ({total_v:.2f} V < 7.5 V) is depleted."
             rec_action = "Connect pack to charger immediately and inspect cell balance."
-            sms_msg = f"⚠️ THE BLACK BOX: Battery net voltage is {total_v:.2f}V (< 7.5V). Needs recharge!"
         elif min_v <= 2.50 or imbalance_v >= 0.60 or temp_c > 55.0 or anomaly in ["critical_failure", "thermal_runaway"]:
             severity = "CRITICAL"
             weakest = min(cells_list, key=lambda c: c["voltage"])
             detected_prob = f"Cell {weakest['index']} is at {min_v:.2f} V with severe pack imbalance {imbalance_v:.2f} V. Anomaly status: {anomaly}."
             rec_action = f"Inspect Cell {weakest['index']}. Stop heavy discharge load immediately."
-            sms_msg = f"🚨 THE BLACK BOX ALERT: Cell {weakest['index']} at {min_v:.2f}V. Severe Imbalance: {imbalance_v:.2f}V."
         elif min_v < 3.00 or imbalance_v >= 0.30 or temp_c > 45.0 or soh_pct < 80.0 or anomaly != "normal":
             severity = "WARNING"
             detected_prob = f"Cell imbalance elevated to {imbalance_v:.2f} V with temp {temp_c:.1f} °C."
             rec_action = "Monitor pack balance and allow thermal equalization on next charge."
-            sms_msg = f"🟡 THE BLACK BOX WARNING: Cell imbalance ({imbalance_v:.2f}V) detected."
         else:
             severity = "NORMAL"
             detected_prob = f"Battery pack operating normally at {total_v:.2f} V."
             rec_action = "Continue standard monitoring."
-            sms_msg = ""
 
         weakest = min(cells_list, key=lambda c: c["voltage"]) if cells_list else {"index": 1, "voltage": 3.6}
 
@@ -188,18 +181,9 @@ class AlertService:
             html_body=html_body
         )
 
-        # Optional SMS alert (Twilio failure won't block Gmail)
-        sms_sent = False
-        if sms_msg and sms_service.is_configured():
-            try:
-                sms_sent = sms_service.send_sms(sms_msg)
-            except Exception as e:
-                logger.warning(f"[AlertService] SMS dispatch failed (ignored): {e}")
-
         # Update tracker state with exact dispatch result
         import time
         details["email_sent"] = email_sent
-        details["sms_sent"] = sms_sent
         details["last_dispatch_ts"] = time.time()
         alert_tracker.update_state(battery_id, details)
 
@@ -210,7 +194,6 @@ class AlertService:
             "severity": severity,
             "recipient": recipient,
             "email_sent": email_sent,
-            "sms_sent": sms_sent,
             "detected_problem": detected_prob
         }
 

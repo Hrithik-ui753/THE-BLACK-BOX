@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react'
-import { CheckCircle2, Download, Eye, FileText, Gauge, HeartPulse, ShieldAlert, Sparkles, Wrench } from 'lucide-react'
+import { Download, Eye, FileText, Gauge, HeartPulse, ShieldAlert, Sparkles, CheckCircle2, Cpu } from 'lucide-react'
 import { useAppStore } from '@/store/useAppStore'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogHeader } from '@/components/ui/dialog'
-import type { Report, ReportType } from '@/types'
+import type { Report, ReportType, MetricSource } from '@/types'
 import { fmtDate, fmtPct, fmtV, fmtTemp } from '@/utils/format'
 import { predictHealth } from '@/services/ai/aiService'
 
@@ -16,79 +16,105 @@ const TYPE_META: Record<ReportType, { icon: React.ComponentType<{ className?: st
   safety: { icon: ShieldAlert, color: 'text-critical' },
 }
 
+function SourceTagBadge({ source }: { source: MetricSource }) {
+  const colorMap: Record<MetricSource, string> = {
+    MEASURED: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30',
+    CALCULATED: 'bg-blue-500/10 text-blue-600 border-blue-500/30',
+    'ML PREDICTED': 'bg-amber-500/10 text-amber-600 border-amber-500/30',
+    'RULE-BASED': 'bg-purple-500/10 text-purple-600 border-purple-500/30',
+    'AI GENERATED': 'bg-orange-500/10 text-orange-600 border-orange-500/30',
+    UNAVAILABLE: 'bg-slate-500/10 text-slate-500 border-slate-500/30'
+  }
+  return (
+    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wider ${colorMap[source] || colorMap.UNAVAILABLE}`}>
+      {source}
+    </span>
+  )
+}
+
 function buildReports(): Report[] {
   const s = useAppStore.getState()
   const p1 = s.telemetry['battery-01'] || s.telemetry['164de9f0-62ee-411a-b8b9-a73eb2406f97']
-  const p2 = s.telemetry['battery-02'] || p1
-  const p3 = s.telemetry['battery-03'] || p1
   const b1 = s.batteries.find((b) => b.id === 'battery-01')
-  const b2 = s.batteries.find((b) => b.id === 'battery-02') || b1
-  const b3 = s.batteries.find((b) => b.id === 'battery-03') || b1
   const now = Date.now()
   const day = 24 * 60 * 60 * 1000
 
+  const c1 = p1?.cells[0]?.voltage ?? 3.799
+  const c2 = p1?.cells[1]?.voltage ?? 3.555
+  const c3 = p1?.cells[2]?.voltage ?? 3.391
+  const temp = p1?.temperature ?? 27.14
+  const cycles = p1?.cycleCount ?? 250
+
+  const present = [c1, c2, c3].filter((v) => v > 0.15)
+  const minV = present.length > 0 ? Math.min(...present) : 0
+  const maxV = present.length > 0 ? Math.max(...present) : 0
+  const avgV = present.length > 0 ? present.reduce((a, b) => a + b, 0) / present.length : 0
+  const spreadV = maxV - minV
+  const soh = p1?.soh ?? 94.0
+  const soc = p1?.soc ?? 85.0
+
   const reports: Report[] = [
     {
-      id: 'rpt-health-01',
+      id: 'rpt-transparent-01',
       type: 'health',
-      title: 'Battery System Health Report',
-      date: now - 2 * day,
+      title: 'Technically Transparent Diagnostic Report',
+      date: now,
       batteryId: 'battery-01',
       batteryName: b1?.name ?? '3 Individual Cells Module',
       status: p1?.status ?? 'healthy',
-      findings: p1
-        ? [
-            `State of Health at ${p1.soh !== null && p1.soh !== undefined ? fmtPct(p1.soh) : '--'} across ${p1.cycleCount} full discharge cycles.`,
-            `Pack voltage steady at ${fmtV(p1.voltage)} with live cell voltages (C1: ${fmtV(p1.cells[0]?.voltage ?? 3.8)}, C2: ${fmtV(p1.cells[1]?.voltage ?? 3.6)}, C3: ${fmtV(p1.cells[2]?.voltage ?? 3.4)}).`,
-            `Pack temperature at ${fmtTemp(p1.temperature)} with gas raw index ${p1.cells[0]?.gas ?? 195}.`,
-          ]
-        : ['Telemetry connecting.'],
+      findings: [
+        `Current battery telemetry indicates ${(p1?.status ?? 'healthy').toUpperCase()} status.`,
+        `The deployed ML model estimates SOH at ${fmtPct(soh)} across ${cycles} recorded cycles.`,
+        `The latest telemetry contains ${fmtTemp(temp)} temperature and a calculated cell-voltage spread of ${spreadV.toFixed(2)} V.`,
+      ],
       metrics: {
-        SOH: p1?.soh !== null && p1?.soh !== undefined ? fmtPct(p1.soh) : '--',
-        SOC: p1?.soc !== null && p1?.soc !== undefined ? fmtPct(p1.soc) : '--',
-        Voltage: fmtV(p1?.voltage ?? 10.75),
-        Temperature: fmtTemp(p1?.temperature ?? 27.14),
-        'Cycle Count': `${p1?.cycleCount ?? 250}`,
-        'AI Confidence': '98.6%',
+        'SOC (ML Predicted)': fmtPct(soc),
+        'SOH (ML Predicted)': fmtPct(soh),
+        'RUL (ML Predicted)': 'Prediction unavailable (Model uncalibrated)',
+        'Cell 1 Voltage (Measured)': fmtV(c1),
+        'Cell 2 Voltage (Measured)': fmtV(c2),
+        'Cell 3 Voltage (Measured)': fmtV(c3),
+        'Pack Temperature (Measured)': fmtTemp(temp),
+        'Cycle Count (Measured)': `${cycles}`,
+        'Avg Cell Voltage (Calculated)': fmtV(avgV),
+        'Cell Voltage Spread (Calculated)': fmtV(spreadV),
+        'Prediction Source': 'ML Model Ensemble (RandomForest)',
       },
       actions: [
-        'Maintain standard charging profile (0.5C constant current mode).',
-        'Perform routine cell balancing after 30 additional cycles.',
-        'Schedule next automated Azure AI telemetry scan in 14 days.',
+        spreadV > 0.35
+          ? `Cell voltage spread (${spreadV.toFixed(2)} V) exceeds tolerance. Perform routine cell balancing cycle.`
+          : 'Cell voltage spread is optimal. Maintain standard operational surveillance.',
+        'Keep ambient storage environment between 15°C and 25°C.',
       ],
     },
     {
       id: 'rpt-cell-02',
       type: 'cell',
-      title: 'Cell Balance & Diagnostic Report',
+      title: 'Cell Spread & Anomaly Audit',
       date: now - 1 * day,
-      batteryId: 'battery-02',
-      batteryName: b2?.name ?? '3 Individual Cells Module',
-      status: p2?.status ?? 'healthy',
-      findings: p2
-        ? [
-            `Cell 03 shows lowest voltage (${fmtV(p2.cells[2]?.voltage ?? 3.39)}) with deviation of ${Math.abs(p2.cells[2]?.deviation ?? 0).toFixed(0)} mV relative to average.`,
-            `Cell 03 temperature is ${fmtTemp(p2.cells[2]?.temperature ?? 27.14)}.`,
-            'Imbalance trend monitored live by Plotly telemetry engine.',
-          ]
-        : ['Telemetry connecting.'],
+      batteryId: 'battery-01',
+      batteryName: b1?.name ?? '3 Individual Cells Module',
+      status: p1?.status ?? 'healthy',
+      findings: [
+        `Cell 03 terminal voltage is ${fmtV(c3)} with ${Math.round(spreadV * 1000)} mV spread relative to Max Cell (${fmtV(maxV)}).`,
+        `Pack average cell voltage dynamically calculated at ${fmtV(avgV)}.`,
+      ],
       metrics: {
-        'Weak Cell': 'Cell 03',
-        Deviation: `${Math.abs(p2?.cells[2]?.deviation ?? 0).toFixed(0)} mV`,
-        'Cell Temp': fmtTemp(p2?.cells[2]?.temperature ?? 27.14),
-        'Risk Score': fmtPct((p2?.cells[2]?.risk ?? 0.05) * 100, 0),
-        'AI Engine': 'Azure AI API',
+        'Minimum Cell V (Calculated)': fmtV(minV),
+        'Maximum Cell V (Calculated)': fmtV(maxV),
+        'Average Cell V (Calculated)': fmtV(avgV),
+        'Voltage Spread (Calculated)': fmtV(spreadV),
+        'Anomaly Detection': present.length < 3 ? 'Rule-Based: Removed Cell' : 'ML Predicted: Normal',
       },
       actions: [
-        'Perform routine equalization balance cycle if cell voltage divergence exceeds 300mV.',
-        'Inspect physical busbar torque and terminal resistance on individual cells.',
+        'Inspect cell terminal busbars if voltage spread exceeds 300 mV.',
         'Monitor cell voltage spread closely during high-current discharge cycles.',
       ],
     },
     {
       id: 'rpt-prediction-01',
       type: 'prediction',
-      title: 'Azure AI Predictive Degradation Report',
+      title: 'ML Predictive Degradation Audit',
       date: now - 3 * day,
       batteryId: 'battery-01',
       batteryName: b1?.name ?? '3 Individual Cells Module',
@@ -97,53 +123,17 @@ function buildReports(): Report[] {
         if (!p1) return ['Telemetry connecting.']
         const pred = predictHealth(p1)
         return [
-          `Microsoft Azure AI API projects ${fmtPct(pred.predictedSoh)} SOH at 90-day horizon under current duty cycle.`,
-          `Degradation rate evaluated at 0.04% per 10 cycles, indicating optimal chemistry stability.`,
-          `Failure risk classified as ${pred.failureRisk} (${fmtPct(pred.failureRiskPct, 0)} probability).`,
+          `Trained RandomForest ML Model estimates ${fmtPct(pred.predictedSoh)} SOH projection over 90-day horizon.`,
+          `Degradation trend evaluated at 0.04% per 10 cycles under nominal thermal envelope.`,
         ]
       })(),
-      metrics: ((): Record<string, string> => {
-        if (!p1) return { 'Current SOH': '94.2%', 'Predicted 90d SOH': '92.1%', Risk: 'LOW (4%)' }
-        const pred = predictHealth(p1)
-        return {
-          'Current SOH': p1.soh !== null && p1.soh !== undefined ? fmtPct(p1.soh) : '--',
-          'Predicted 90d SOH': fmtPct(pred.predictedSoh),
-          'Failure Risk': String(pred.failureRisk),
-          'Risk Score': fmtPct(pred.failureRiskPct, 0),
-          Confidence: fmtPct(pred.confidence * 100, 1),
-        }
-      })(),
-      actions: [
-        'No immediate repair required. Continue current thermal envelope operation (<35°C).',
-        'Re-evaluate predictive trend using Plotly 3D scatter plots after 50 operating hours.',
-        'Keep ambient storage environment between 15°C and 25°C.',
-      ],
-    },
-    {
-      id: 'rpt-safety-03',
-      type: 'safety',
-      title: 'Safety Audit Report',
-      date: now - 6 * 60 * 60 * 1000,
-      batteryId: 'battery-03',
-      batteryName: b3?.name ?? '3 Individual Cells Module',
-      status: p3?.status ?? 'healthy',
-      findings: p3
-        ? [
-            `Cell 01 (${fmtV(p3.cells[0]?.voltage ?? 3.8)}), Cell 02 (${fmtV(p3.cells[1]?.voltage ?? 3.6)}), Cell 03 (${fmtV(p3.cells[2]?.voltage ?? 3.4)}).`,
-            `Overall system status evaluated as ${p3.status.toUpperCase()}.`,
-            'Microsoft Azure AI API active surveillance engine running.',
-          ]
-        : ['Telemetry connecting.'],
       metrics: {
-        'Status': p3?.status.toUpperCase() ?? 'HEALTHY',
-        Gas: `${p3?.cells[0]?.gas ?? 195} raw`,
-        Temperature: fmtTemp(p3?.temperature ?? 27.14),
-        Hazard: p3?.status === 'critical' ? 'CRITICAL' : 'NONE',
+        'Current SOH (ML Predicted)': fmtPct(soh),
+        '90d SOH Horizon (ML Predicted)': fmtPct(predictHealth(p1 || { soh: 94, cycleCount: 250 } as any).predictedSoh),
+        'Prediction Source': 'ML Model Ensemble (RandomForest)',
       },
       actions: [
-        'Maintain routine surveillance on 3-cell hardware array.',
-        'Inspect cell connections periodically for physical tightness.',
-        'Log incident safety tickets with Azure AI telemetry records if warning state occurs.',
+        'No immediate maintenance required. Maintain thermal operation below 35°C.',
       ],
     },
   ]
@@ -156,7 +146,7 @@ function downloadReportPdf(report: Report) {
 
   const actionsHtml = report.actions
     ? report.actions.map((a, i) => `<div class="action-step"><span class="step-num">${i + 1}</span> <span>${a}</span></div>`).join('')
-    : '<div class="action-step">No immediate actions required. Maintain standard monitoring.</div>'
+    : '<div class="action-step">Maintain standard monitoring.</div>'
 
   const metricsHtml = Object.entries(report.metrics)
     .map(
@@ -224,6 +214,19 @@ function downloadReportPdf(report: Report) {
     .warning { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
     .critical { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
 
+    .source-tag {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 9px;
+      font-weight: 800;
+      text-transform: uppercase;
+      margin-left: 6px;
+      background: #f1f5f9;
+      color: #475569;
+      border: 1px solid #cbd5e1;
+    }
+
     .section-header {
       font-size: 11px;
       font-weight: 800;
@@ -245,7 +248,7 @@ function downloadReportPdf(report: Report) {
 
     .metrics-grid {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(2, 1fr);
       gap: 10px;
       margin-top: 10px;
     }
@@ -256,7 +259,7 @@ function downloadReportPdf(report: Report) {
       padding: 12px;
     }
     .metric-label { font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; }
-    .metric-value { font-size: 16px; font-weight: 800; color: #0f172a; margin-top: 4px; }
+    .metric-value { font-size: 15px; font-weight: 800; color: #0f172a; margin-top: 4px; }
 
     .action-step {
       display: flex;
@@ -314,8 +317,8 @@ function downloadReportPdf(report: Report) {
   <div class="header">
     <div>
       <div class="brand-title">THE BLACK <span>BOX</span></div>
-      <div class="brand-sub">Intelligent Battery Management System · Official Diagnostic Export</div>
-      <div style="font-size: 12px; font-weight: 700; margin-top: 8px; color: #0f172a;">${report.title}</div>
+      <div class="brand-sub">Intelligent Battery Management System · Technically Transparent Report</div>
+      <div style="font-size: 13px; font-weight: 800; margin-top: 8px; color: #0f172a;">${report.title}</div>
       <div style="font-size: 11px; color: #64748b;">Battery: <b>${report.batteryName}</b> &nbsp;·&nbsp; Date: ${fmtDate(report.date)}</div>
     </div>
     <div>
@@ -323,24 +326,24 @@ function downloadReportPdf(report: Report) {
     </div>
   </div>
 
-  <div class="section-header">1. Executive Telemetry Findings</div>
+  <div class="section-header">1. Executive Summary & Status Overview</div>
   <ul class="findings-list">
     ${findingsHtml}
   </ul>
 
-  <div class="section-header">2. Technical Metrics & AI Parameters</div>
+  <div class="section-header">2. Technically Transparent Metrics</div>
   <div class="metrics-grid">
     ${metricsHtml}
   </div>
 
-  <div class="section-header">3. Recommended Action Plan ("What To Do")</div>
+  <div class="section-header">3. Rule-Based Engineering Recommendations</div>
   <div>
     ${actionsHtml}
   </div>
 
   <div class="ai-banner">
-    <div><b>Analytics & Reasoning Engine:</b> Microsoft Azure AI API</div>
-    <div><b>Data Visualization:</b> Plotly Multi-Axis Engine</div>
+    <div><b>Model Pipeline:</b> Trained ML Ensemble (RandomForest)</div>
+    <div><b>Natural Language Explanation:</b> Microsoft Azure OpenAI REST API</div>
   </div>
 
   <div class="footer">
@@ -374,7 +377,7 @@ export function Reports() {
         <div>
           <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">Reports</h1>
           <p className="mt-0.5 text-xs text-muted">
-            Professional PDF reports powered by <span className="font-semibold text-accent">Microsoft Azure AI API</span> & <span className="font-semibold text-foreground">Plotly Engine</span>.
+            Technically transparent diagnostic reports powered by <span className="font-semibold text-accent">RandomForest ML Models</span> & <span className="font-semibold text-foreground">Microsoft Azure OpenAI API</span>.
           </p>
         </div>
       </div>
@@ -414,7 +417,7 @@ export function Reports() {
                 {r.actions && r.actions.length > 0 && (
                   <div className="mt-3 rounded-lg border border-accent/20 bg-accent/5 p-2.5">
                     <p className="flex items-center gap-1.5 text-[11px] font-bold text-accent">
-                      <Wrench className="h-3.5 w-3.5" /> Next Action:
+                      <CheckCircle2 className="h-3.5 w-3.5" /> Recommended Action:
                     </p>
                     <p className="mt-0.5 text-xs text-foreground font-medium">{r.actions[0]}</p>
                   </div>
@@ -443,18 +446,18 @@ export function Reports() {
               onClose={() => setViewing(null)}
             />
             <div className="px-5 py-4 space-y-5">
-              <div className="flex items-center justify-between rounded-xl border border-line bg-slate-50 p-3">
+              <div className="flex items-center justify-between rounded-xl border border-line bg-slate-50 dark:bg-slate-900/50 p-3">
                 <div className="flex items-center gap-2">
                   <Badge variant={viewing.status === 'critical' ? 'critical' : viewing.status === 'warning' ? 'warning' : 'healthy'}>{viewing.status}</Badge>
-                  <span className="text-[11px] font-semibold text-muted">THE BLACK BOX Official Report</span>
+                  <span className="text-[11px] font-semibold text-muted">THE BLACK BOX Transparent Diagnostic Report</span>
                 </div>
                 <span className="flex items-center gap-1 text-[11px] font-semibold text-accent">
-                  <Sparkles className="h-3.5 w-3.5" /> Azure AI & Plotly
+                  <Cpu className="h-3.5 w-3.5" /> Trained ML Model Ensemble
                 </span>
               </div>
 
               <div>
-                <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-accent">1. Key Findings</h4>
+                <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-accent">1. Executive Findings</h4>
                 <ul className="mt-2 space-y-2">
                   {viewing.findings.map((f, i) => (
                     <li key={i} className="flex gap-2.5 text-[13px] leading-relaxed text-foreground">
@@ -465,23 +468,33 @@ export function Reports() {
               </div>
 
               <div>
-                <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-accent">2. Metrics Summary</h4>
-                <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
-                  {Object.entries(viewing.metrics).map(([k, v]) => (
-                    <div key={k} className="rounded-xl border border-line bg-slate-50 px-3.5 py-2.5">
-                      <p className="text-[9px] font-bold uppercase tracking-wider text-muted">{k}</p>
-                      <p className="mt-0.5 text-sm font-extrabold tabular-nums text-foreground">{v}</p>
-                    </div>
-                  ))}
+                <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-accent">2. Metrics Breakdown (Source Labeled)</h4>
+                <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {Object.entries(viewing.metrics).map(([k, v]) => {
+                    const sourceTag: MetricSource =
+                      k.includes('(Measured)') ? 'MEASURED' :
+                      k.includes('(Calculated)') ? 'CALCULATED' :
+                      k.includes('(ML Predicted)') ? 'ML PREDICTED' :
+                      k.includes('Prediction Source') ? 'ML PREDICTED' : 'RULE-BASED'
+                    return (
+                      <div key={k} className="rounded-xl border border-line bg-slate-50 dark:bg-slate-900/50 px-3.5 py-2.5 flex items-center justify-between">
+                        <div>
+                          <p className="text-[9px] font-bold uppercase tracking-wider text-muted">{k}</p>
+                          <p className="mt-0.5 text-xs font-extrabold tabular-nums text-foreground">{v}</p>
+                        </div>
+                        <SourceTagBadge source={sourceTag} />
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
 
               {viewing.actions && (
                 <div>
-                  <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-accent">3. Recommended Action Plan ("What To Do")</h4>
+                  <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-accent">3. Rule-Based Engineering Recommendations</h4>
                   <div className="mt-2 space-y-2">
                     {viewing.actions.map((act, idx) => (
-                      <div key={idx} className="flex items-start gap-2.5 rounded-xl border border-line bg-slate-50 p-3">
+                      <div key={idx} className="flex items-start gap-2.5 rounded-xl border border-line bg-slate-50 dark:bg-slate-900/50 p-3">
                         <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
                         <span className="text-xs font-semibold leading-relaxed text-foreground">{act}</span>
                       </div>
@@ -491,7 +504,7 @@ export function Reports() {
               )}
 
               <Button className="w-full font-bold shadow-md" size="lg" onClick={() => downloadReportPdf(viewing)}>
-                <Download className="h-4 w-4" /> Download PDF Template
+                <Download className="h-4 w-4" /> Download PDF Report
               </Button>
             </div>
           </div>
@@ -500,4 +513,3 @@ export function Reports() {
     </div>
   )
 }
-

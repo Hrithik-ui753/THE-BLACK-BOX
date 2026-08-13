@@ -5,11 +5,24 @@ from typing import Dict, Any, Optional
 from config import DEFAULT_BATTERY_ID
 from services.firebase_service import firebase_service
 from services.prediction_service import prediction_service
-from supabase_service import supabase_db
+from services.report_service import report_service
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/telemetry", tags=["Live & Historical Telemetry"])
+
+
+@router.get("/report")
+def get_diagnostic_report(battery_id: str = Query(DEFAULT_BATTERY_ID)):
+    """
+    Returns the 4-section technically transparent battery diagnostic report:
+    1. ML PREDICTIONS (SOC, SOH, RUL, Anomaly)
+    2. MEASURED TELEMETRY (C1-C3 V, Temp, Cycle count, Pack V, Timestamp)
+    3. CALCULATED BATTERY METRICS (Min V, Max V, Avg V, Cell Voltage Spread)
+    4. AI EXPLANATION & RECOMMENDATIONS (Azure AI explanation + Rule-based recommendations)
+    + Model Metadata & Physical Consistency Validation
+    """
+    return report_service.generate_report(battery_id=battery_id)
 
 
 @router.get("/live")

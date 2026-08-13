@@ -63,7 +63,7 @@ export function NewAnalyticsModal({
       <div className="relative overflow-hidden rounded-2xl bg-surface border border-line shadow-2xl">
         <DialogHeader
           title="3 Individual Cells Configuration"
-          subtitle="Configure mobile number for SMS alerts & monitor 3 Individual Cells (Cell 1, Cell 2, Cell 3)."
+          subtitle="Configure mobile number & monitor 3 Individual Cells (Cell 1, Cell 2, Cell 3)."
           onClose={onClose}
         />
 
@@ -71,7 +71,7 @@ export function NewAnalyticsModal({
           {/* Mobile Number Input */}
           <div>
             <Label htmlFor="mobile-number" className="text-xs font-bold text-foreground">
-              Mobile Number (for SMS & Gmail Security Alerts)
+              Mobile Number (for Gmail Security Alerts)
             </Label>
             <div className="relative mt-1.5">
               <Phone className="absolute left-3 top-2.5 h-4 w-4 text-faint" />

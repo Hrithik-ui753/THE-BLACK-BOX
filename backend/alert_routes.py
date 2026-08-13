@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 
-from email_alert_service import email_service, sms_service, alert_tracker
+from email_alert_service import email_service, alert_tracker
 
 router = APIRouter(prefix="/api/alerts", tags=["Gmail Battery Alerts"])
 
@@ -34,17 +34,14 @@ class TestEmailPayload(BaseModel):
 
 @router.get("/config")
 def get_alert_config():
-    """Returns the current Gmail & Twilio SMS alert configuration status."""
+    """Returns the current Gmail alert configuration status."""
     return {
         "status": "ok",
         "gmail_configured": email_service.is_configured(),
-        "twilio_configured": sms_service.is_configured(),
         "smtp_host": email_service.smtp_host,
         "smtp_port": email_service.smtp_port,
         "gmail_user": email_service.gmail_user if email_service.gmail_user else "Not set",
         "default_recipient": email_service.default_recipient if email_service.default_recipient else "Not set",
-        "twilio_from": sms_service.sms_from if sms_service.sms_from else "Not set",
-        "twilio_to": sms_service.sms_to if sms_service.sms_to else "Not set",
     }
 
 
@@ -59,7 +56,7 @@ def get_alert_history():
 
 @router.post("/test-gmail")
 def send_test_gmail(payload: TestEmailPayload):
-    """Sends an instant test Gmail & Twilio SMS alert to verify configuration."""
+    """Sends an instant test Gmail alert to verify configuration."""
     target_email = payload.recipient_email or email_service.default_recipient
 
     if not email_service.is_configured():
@@ -83,11 +80,11 @@ def send_test_gmail(payload: TestEmailPayload):
         overall_risk="CRITICAL",
         anomaly_score=94,
         cells_data=test_cells,
-        detected_problem="[TEST EMAIL & SMS] Cell 3 voltage is 1.10 V (2.50 V Imbalance). Verification of SMTP delivery.",
+        detected_problem="[TEST EMAIL] Cell 3 voltage is 1.10 V (2.50 V Imbalance). Verification of SMTP delivery.",
         max_v=3.60,
         min_v=1.10,
         imbalance_v=2.50,
-        ai_assessment="This is a test notification sent to verify Gmail SMTP & Twilio SMS configuration for THE BLACK BOX AI BMS.",
+        ai_assessment="This is a test notification sent to verify Gmail SMTP configuration for THE BLACK BOX AI BMS.",
         possible_causes=["Verification of SMTP service", "Hardware diagnostic simulation"],
         recommended_action="No action required. This is a system verification test email.",
         event_type="ALERT"
@@ -100,26 +97,19 @@ def send_test_gmail(payload: TestEmailPayload):
         html_body=html_body
     )
 
-    # Trigger SMS test if configured
-    sms_sent = False
-    if sms_service.is_configured():
-        sms_text = f"🚨 THE BLACK BOX TEST ALERT\nCell 3: 1.10V (2.50V Imbalance)\nStatus: Verification Test Email & SMS Sent Successfully."
-        sms_sent = sms_service.send_sms(sms_text)
-
     if not success:
         raise HTTPException(status_code=500, detail="Failed to send test email via Gmail SMTP server.")
 
     return {
         "status": "success",
         "message": f"Test Gmail alert successfully delivered to {target_email}!",
-        "recipient": target_email,
-        "sms_sent": sms_sent
+        "recipient": target_email
     }
 
 
 @router.post("/send-email")
 def evaluate_and_send_alert(payload: TelemetryAlertPayload):
-    """Evaluates telemetry payload, determines severity rules, checks deduplication, and sends alert email + SMS."""
+    """Evaluates telemetry payload, determines severity rules, checks deduplication, and sends alert email."""
     cells_list = [c.dict() for c in payload.cells] if payload.cells else [
         {"index": 1, "voltage": 3.60, "status": "healthy"},
         {"index": 2, "voltage": 3.60, "status": "healthy"},
@@ -143,44 +133,36 @@ def evaluate_and_send_alert(payload: TelemetryAlertPayload):
         severity = "CRITICAL"
         detected_prob = f"🚨 DEAD BATTERY PACK: Net voltage is {net_pack_v:.2f} V (0.0 V / depleted). All cells are drained/dead!"
         rec_action = "IMMEDIATELY ISOLATE DEAD PACK. Inspect cells for physical damage or deep discharge state before recharging."
-        sms_alert_msg = f"🚨 THE BLACK BOX CRITICAL: Battery pack is DEAD ({net_pack_v:.2f}V). Disconnect immediately!"
     elif zero_cells:
         severity = "CRITICAL"
         zero_indices = [str(c.get("index", 1)) for c in zero_cells]
         detected_prob = f"🚨 CRITICAL CELL FAILURE: Cell(s) {', '.join(zero_indices)} voltage is 0.0 V (0V / depleted). Replace Cell(s) {', '.join(zero_indices)} immediately!"
         rec_action = f"Isolate battery pack and REPLACE Cell(s) {', '.join(zero_indices)} before operating!"
-        sms_alert_msg = f"🚨 THE BLACK BOX CRITICAL: Cell(s) {', '.join(zero_indices)} is 0.0V / depleted. Replace immediately!"
     elif is_low_net_v:
         severity = "CRITICAL"
         detected_prob = f"⚠️ CRITICAL LOW VOLTAGE: Battery net pack voltage ({net_pack_v:.2f} V < 7.5 V) is depleted. Needs immediate recharge and inspection!"
         rec_action = "Connect pack to charger immediately and check individual cell health before applying load."
-        sms_alert_msg = f"⚠️ THE BLACK BOX ALERT: Battery net voltage is {net_pack_v:.2f}V (< 7.5V). Needs immediate recharge and inspection!"
     elif min_v < 2.80 or imbalance_v > 0.20 or payload.temperature > 55.0 or payload.anomaly_score >= 76:
         severity = "CRITICAL"
         weakest = min(cells_list, key=lambda c: c.get("voltage", 99.0))
         detected_prob = f"Cell {weakest.get('index', 3)} is operating at {min_v:.2f} V, producing a {imbalance_v:.2f} V pack imbalance."
         rec_action = f"Verify voltage measurement immediately. If confirmed, stop normal operation and inspect/isolate Cell {weakest.get('index', 3)}."
-        sms_alert_msg = f"🚨 THE BLACK BOX CRITICAL ALERT: Cell {weakest.get('index', 3)} at {min_v:.2f}V. Pack Imbalance: {imbalance_v:.2f}V. Inspect immediately!"
     elif imbalance_v > 0.10 or payload.temperature > 45.0 or payload.anomaly_score >= 51:
         severity = "HIGH_RISK"
         detected_prob = f"Cell imbalance elevated to {imbalance_v:.2f} V with temp {payload.temperature:.1f} °C."
         rec_action = "Monitor cell balance and reduce heavy load to allow passive thermal equalization."
-        sms_alert_msg = f"🟠 THE BLACK BOX WARNING: High cell imbalance ({imbalance_v:.2f}V) detected. Monitor thermal status."
     elif payload.health_score < 75 or payload.soh_pct < 80.0:
         severity = "WARNING"
         detected_prob = f"Battery State of Health (SOH) dropped to {payload.soh_pct:.1f}%."
         rec_action = "Schedule maintenance check to assess capacity degradation."
-        sms_alert_msg = f"🟡 THE BLACK BOX ALERT: SOH declined to {payload.soh_pct:.1f}%."
     elif is_healthy_net_v:
         severity = "NORMAL"
         detected_prob = f"🟢 HEALTHY: Battery pack net voltage is {net_pack_v:.2f} V (>= 11.0 V). Operating within optimal parameters."
         rec_action = "No action required. Battery pack operating normally."
-        sms_alert_msg = f"🟢 THE BLACK BOX STATUS: Battery net voltage {net_pack_v:.2f}V >= 11.0V (Healthy)."
     else:
         severity = "NORMAL"
         detected_prob = f"Battery pack operating at {net_pack_v:.2f} V."
         rec_action = "Continue standard monitoring."
-        sms_alert_msg = ""
 
     details = {
         "severity": severity,
@@ -209,7 +191,7 @@ def evaluate_and_send_alert(payload: TelemetryAlertPayload):
             "status": "suppressed",
             "reason": reason,
             "severity": severity,
-            "message": f"Alert email & SMS suppressed according to smart deduplication rules ({reason})."
+            "message": f"Alert email suppressed according to smart deduplication rules ({reason})."
         }
 
     # Build Content & Dispatch Email
@@ -252,17 +234,8 @@ def evaluate_and_send_alert(payload: TelemetryAlertPayload):
         html_body=html_body
     )
 
-    # Optional SMS alert via Twilio
-    sms_sent = False
-    if sms_alert_msg and (severity in ["CRITICAL", "HIGH_RISK"] or payload.force_send):
-        try:
-            sms_sent = sms_service.send_sms(sms_alert_msg)
-        except Exception as sms_err:
-            print(f"[AlertRoutes] SMS dispatch skipped: {sms_err}")
-
     import time
     details["email_sent"] = sent
-    details["sms_sent"] = sms_sent
     details["last_dispatch_ts"] = time.time()
     alert_tracker.update_state(payload.battery_id, details)
 
@@ -272,6 +245,5 @@ def evaluate_and_send_alert(payload: TelemetryAlertPayload):
         "severity": severity,
         "recipient_email": target_email,
         "email_sent": sent,
-        "sms_sent": sms_sent,
         "message": f"Gmail Email Alert successfully dispatched to {target_email}!" if sent else f"Alert event recorded in database history."
     }

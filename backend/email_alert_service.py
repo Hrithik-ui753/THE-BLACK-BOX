@@ -102,45 +102,6 @@ alert_tracker = SmartAlertTracker()
 
 
 # ============================================================
-# TWILIO SMS ALERT SERVICE
-# ============================================================
-
-class SmsAlertService:
-    def __init__(self):
-        self.account_sid = os.getenv("TWILIO_ACCOUNT_SID", "")
-        self.auth_token = os.getenv("TWILIO_AUTH_TOKEN", "")
-        self.sms_from = os.getenv("TWILIO_SMS_FROM", "").strip()
-        self.sms_to = os.getenv("TWILIO_SMS_TO", "").strip()
-
-    def is_configured(self) -> bool:
-        return bool(self.account_sid and self.auth_token and self.sms_from and self.sms_to)
-
-    def send_sms(self, message_body: str) -> bool:
-        """Sends an instant SMS alert via Twilio REST API."""
-        if not self.is_configured():
-            print("[SmsAlertService] Error: Missing Twilio credentials or recipient phone.")
-            return False
-
-        try:
-            from twilio.rest import Client
-            client = Client(self.account_sid, self.auth_token)
-            msg = client.messages.create(
-                from_=self.sms_from,
-                to=self.sms_to,
-                body=message_body
-            )
-            print(f"[SmsAlertService] [OK] SMS alert successfully dispatched! SID: {msg.sid}")
-            return True
-        except Exception as e:
-            err_msg = str(e).split("\n")[0]
-            print(f"[SmsAlertService] Twilio SMS alert skipped: {err_msg}")
-            return False
-
-
-sms_service = SmsAlertService()
-
-
-# ============================================================
 # GMAIL / SMTP EMAIL ALERT SERVICE
 # ============================================================
 

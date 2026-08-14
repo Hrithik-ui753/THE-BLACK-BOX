@@ -9,11 +9,9 @@ export interface GoogleAuthOptions {
   photoURL?: string
 }
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'
-
 class AuthService {
   async signInWithGoogle(options?: GoogleAuthOptions): Promise<User> {
-    // If options are explicitly passed (e.g. from Google Account Chooser Modal), use them directly!
+    // If options are explicitly passed, use them directly
     if (options && options.email) {
       const email = options.email
       const rawName = options.name || (email.includes('@') ? email.split('@')[0].replace('.', ' ') : 'Google User')
@@ -27,50 +25,17 @@ class AuthService {
       }
     }
 
-    try {
-      // Attempt Firebase Google Sign-In via popup
-      const userCredential = await signInWithPopup(auth, googleProvider)
-      const firebaseUser = userCredential.user
-      const idToken = await firebaseUser.getIdToken()
-
-      // Send ID Token to Backend for verification
-      try {
-        const response = await fetch(`${BACKEND_URL}/api/auth/verify-token`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ idToken }),
-        })
-
-        if (response.ok) {
-          const data = await response.json()
-          if (data.success && data.user) {
-            return {
-              id: data.user.id || firebaseUser.uid,
-              name: data.user.name || firebaseUser.displayName || 'Google User',
-              email: data.user.email || firebaseUser.email || '',
-              phone: firebaseUser.phoneNumber || '+91 98765 43210',
-              photoURL: data.user.photoURL || firebaseUser.photoURL || undefined,
-            }
-          }
-        }
-      } catch (backendError) {
-        console.warn('[AuthService] Backend verification unreached:', backendError)
-      }
-
-      // Return authenticated user details directly from Firebase token credential
-      const fallbackName = firebaseUser.displayName || 'Google User'
-      return {
-        id: firebaseUser.uid,
-        name: fallbackName,
-        email: firebaseUser.email || 'user@gmail.com',
-        phone: firebaseUser.phoneNumber || '+91 98765 43210',
-        photoURL: firebaseUser.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(fallbackName)}&background=4285F4&color=fff`,
-      }
-    } catch (firebaseError: any) {
-      console.warn('[AuthService] Firebase popup restricted or API key unconfigured:', firebaseError)
-      throw new Error('REQUIRE_ACCOUNT_CHOOSER')
+    // Trigger authentic Firebase Google Sign-In popup with prompt: 'select_account'
+    googleProvider.setCustomParameters({ prompt: 'select_account' })
+    const userCredential = await signInWithPopup(auth, googleProvider)
+    const firebaseUser = userCredential.user
+    const fallbackName = firebaseUser.displayName || 'Google User'
+    return {
+      id: firebaseUser.uid,
+      name: fallbackName,
+      email: firebaseUser.email || 'user@gmail.com',
+      phone: firebaseUser.phoneNumber || '+91 98765 43210',
+      photoURL: firebaseUser.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(fallbackName)}&background=4285F4&color=fff`,
     }
   }
 

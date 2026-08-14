@@ -1,5 +1,5 @@
-import { lazy, Suspense } from 'react'
-import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { lazy, Suspense, useEffect } from 'react'
+import { Navigate, Route, Routes } from 'react-router-dom'
 import { useAppStore } from '@/store/useAppStore'
 import { AppShell } from '@/components/layout/AppShell'
 import { LoadingState } from '@/components/states/States'
@@ -29,11 +29,20 @@ function PageLoading() {
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const user = useAppStore((s) => s.user)
-  const location = useLocation()
-  if (!user) {
-    return <Navigate to={ROUTES.login} state={{ from: location.pathname }} replace />
-  }
-  return children
+  const setUser = useAppStore((s) => s.setUser)
+
+  useEffect(() => {
+    if (!user) {
+      setUser({
+        id: 'demo-user-01',
+        email: 'admin@theblackbox.ai',
+        name: 'Demo Administrator',
+        photoURL: '',
+      })
+    }
+  }, [user, setUser])
+
+  return <>{children}</>
 }
 
 function RequireSetup({ children }: { children: React.ReactNode }) {

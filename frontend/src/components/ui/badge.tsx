@@ -4,13 +4,13 @@ import { cn } from '@/utils/cn'
 export type BadgeVariant = 'healthy' | 'warning' | 'critical' | 'accent' | 'outline' | 'muted' | 'offline'
 
 const styles: Record<BadgeVariant, string> = {
-  healthy: 'bg-healthy/12 text-healthy border-healthy/30',
-  warning: 'bg-warning/12 text-warning border-warning/30',
-  critical: 'bg-critical/12 text-critical border-critical/30',
-  accent: 'bg-accent/12 text-accent-soft border-accent/30',
-  outline: 'text-muted border-line',
-  muted: 'bg-surface-2 text-muted border-line',
-  offline: 'bg-faint/10 text-faint border-faint/30',
+  healthy: 'bg-emerald-500/15 text-emerald-800 border-emerald-500/30 font-bold',
+  warning: 'bg-amber-500/15 text-amber-900 border-amber-500/40 font-bold',
+  critical: 'bg-rose-500/15 text-rose-900 border-rose-500/40 font-bold',
+  accent: 'bg-orange-500/15 text-orange-900 border-orange-500/40 font-bold',
+  outline: 'text-foreground border-line font-bold',
+  muted: 'bg-surface-2 text-foreground border-line font-bold',
+  offline: 'bg-slate-500/15 text-slate-800 border-slate-500/30 font-bold',
 }
 
 export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {

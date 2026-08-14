@@ -6,6 +6,7 @@ from config import DEFAULT_BATTERY_ID
 from services.firebase_service import firebase_service
 from services.prediction_service import prediction_service
 from services.report_service import report_service
+from supabase_service import supabase_db
 
 logger = logging.getLogger(__name__)
 

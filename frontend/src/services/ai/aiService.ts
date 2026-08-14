@@ -21,7 +21,7 @@ function packLabel(b: Battery | null): string {
   return b?.name ?? 'the selected battery'
 }
 
-const API_BASE = import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'
+import { BACKEND_URL as API_BASE } from '@/config/api'
 
 /**
  * AI Service integrated with Azure OpenAI REST API backend.

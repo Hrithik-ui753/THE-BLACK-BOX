@@ -1,6 +1,6 @@
 import type { PackTelemetry } from '@/types'
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'
+import { BACKEND_URL } from '@/config/api'
 
 export interface SupabaseSensorReading {
   id?: number

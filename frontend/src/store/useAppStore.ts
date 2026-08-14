@@ -208,18 +208,16 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'cellguard-ai',
-      version: 4,
-      partialize: (s) => ({
-        user: s.user,
-        onboardingComplete: s.onboardingComplete,
-        batteries: s.batteries,
-        selectedBatteryId: s.selectedBatteryId || 'battery-01',
-        messages: s.messages,
-        notifications: s.notifications,
-        settings: s.settings,
-        sidebarCollapsed: s.sidebarCollapsed,
-        batteryViewMode: s.batteryViewMode,
-      }),
+      merge: (persistedState, currentState) => {
+        const p = (persistedState || {}) as Partial<AppState>
+        const validBatteries = Array.isArray(p.batteries) ? p.batteries.filter(Boolean) : []
+        return {
+          ...currentState,
+          ...p,
+          batteries: validBatteries.length > 0 ? validBatteries : SEED_BATTERIES,
+          selectedBatteryId: p.selectedBatteryId || 'battery-01',
+        }
+      },
     },
   ),
 )

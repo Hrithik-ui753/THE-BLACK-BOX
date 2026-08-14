@@ -14,25 +14,31 @@ from datetime import datetime
 SERIAL_PORT = "COM9"
 BAUD_RATE = 9600
 
-SERVICE_ACCOUNT_FILE = "black-box-24537-firebase-adminsdk-fbsvc-a7c1ce317e.json"
+SERVICE_ACCOUNT_FILE = "../backend/authentication/serviceAccountKey.json"
 
-DATABASE_URL = "https://black-box-24537-default-rtdb.firebaseio.com/"
+DATABASE_URL = "https://black-box-9aa5e-default-rtdb.firebaseio.com/"
 
 
 # =====================================================
 # FIREBASE INITIALIZATION
 # =====================================================
 
-cred = credentials.Certificate(
-    SERVICE_ACCOUNT_FILE
-)
+import os
+from pathlib import Path
 
-firebase_admin.initialize_app(
-    cred,
-    {
-        "databaseURL": DATABASE_URL
-    }
-)
+if os.path.exists(SERVICE_ACCOUNT_FILE):
+    import json
+    try:
+        data = json.loads(Path(SERVICE_ACCOUNT_FILE).read_text(encoding="utf-8"))
+        if data.get("type") == "service_account":
+            cred = credentials.Certificate(SERVICE_ACCOUNT_FILE)
+            firebase_admin.initialize_app(cred, {"databaseURL": DATABASE_URL})
+        else:
+            print(f"[INFO] Using Firebase Database URL: {DATABASE_URL}")
+    except Exception as e:
+        print(f"[WARNING] Could not parse certificate: {e}")
+else:
+    print(f"[INFO] Using Firebase Database URL: {DATABASE_URL}")
 
 
 # =====================================================

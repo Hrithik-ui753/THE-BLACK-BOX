@@ -21,34 +21,50 @@ class AlertService:
         If a Warning or Critical condition occurs, checks deduplication rules
         and sends a Gmail alert via SMTP.
         """
-        try:
-            c1 = float(sensor_data.get("cell1_voltage_v") if sensor_data.get("cell1_voltage_v") is not None else 3.799)
-        except Exception:
-            c1 = 0.0
+    def _extract_voltage(self, data: Dict[str, Any], keys: list, default: float) -> float:
+        for k in keys:
+            val = data.get(k)
+            if val is not None:
+                try:
+                    return round(float(val), 3)
+                except Exception:
+                    pass
+        return round(default, 3)
 
-        try:
-            c2 = float(sensor_data.get("cell2_voltage_v") if sensor_data.get("cell2_voltage_v") is not None else 3.606)
-        except Exception:
-            c2 = 0.0
+    def evaluate_and_notify(
+        self,
+        battery_id: str,
+        sensor_data: Dict[str, Any],
+        derived_features: Dict[str, Any],
+        predictions: Dict[str, Any],
+        force_send: bool = False
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Evaluates battery telemetry, derived features, and ML predictions.
+        If a Warning or Critical condition occurs, checks deduplication rules
+        and sends a Gmail alert via SMTP.
+        """
+        c1 = self._extract_voltage(sensor_data, ["cell1_voltage_v", "cell1_v", "cell1", "c1", "voltage1"], 3.799)
+        c2 = self._extract_voltage(sensor_data, ["cell2_voltage_v", "cell2_v", "cell2", "c2", "voltage2"], 3.606)
+        c3 = self._extract_voltage(sensor_data, ["cell3_voltage_v", "cell3_v", "cell3", "c3", "voltage3"], 3.391)
 
-        try:
-            c3 = float(sensor_data.get("cell3_voltage_v") if sensor_data.get("cell3_voltage_v") is not None else 3.425)
-        except Exception:
-            c3 = 0.0
-
-        try:
-            total_v = float(sensor_data.get("total_voltage_v") if sensor_data.get("total_voltage_v") is not None else (c1 + c2 + c3))
-        except Exception:
+        raw_total = sensor_data.get("total_voltage_v") or sensor_data.get("total_v") or sensor_data.get("pack_voltage")
+        if raw_total is not None:
+            try:
+                total_v = round(float(raw_total), 3)
+            except Exception:
+                total_v = round(c1 + c2 + c3, 3)
+        else:
             total_v = round(c1 + c2 + c3, 3)
 
         try:
-            temp_c = float(sensor_data.get("battery_temperature_c") if sensor_data.get("battery_temperature_c") is not None else 27.14)
+            temp_c = round(float(sensor_data.get("battery_temperature_c") if sensor_data.get("battery_temperature_c") is not None else 27.14), 2)
         except Exception:
             temp_c = 27.14
 
-        min_v = float(derived_features.get("min_cell_voltage_V", min(c1, c2, c3)))
-        max_v = float(derived_features.get("max_cell_voltage_V", max(c1, c2, c3)))
-        imbalance_v = float(derived_features.get("cell_voltage_imbalance_V", max_v - min_v))
+        min_v = round(float(derived_features.get("min_cell_voltage_V", min(c1, c2, c3))), 3)
+        max_v = round(float(derived_features.get("max_cell_voltage_V", max(c1, c2, c3))), 3)
+        imbalance_v = round(float(derived_features.get("cell_voltage_imbalance_V", max_v - min_v)), 3)
 
         soc_pct = float(predictions.get("soc") if predictions.get("soc") is not None else 85.0)
         soh_pct = float(predictions.get("soh") if predictions.get("soh") is not None else 94.0)
@@ -70,34 +86,34 @@ class AlertService:
 
         if is_entire_pack_dead:
             severity = "CRITICAL"
-            detected_prob = f"🚨 DEAD BATTERY PACK: Net voltage is {total_v:.2f} V (0.00 V / depleted). All cells are drained or disconnected!"
+            detected_prob = f"🚨 DEAD BATTERY PACK: Net voltage is {total_v:.3f} V (0.00 V / depleted). All cells are drained or disconnected!"
             rec_action = "IMMEDIATELY ISOLATE PACK. Check physical cell contact terminals and inspect cells before recharging."
         elif removed_cells:
             severity = "CRITICAL"
             removed_indices = [str(c["index"]) for c in removed_cells]
-            detected_prob = f"🔌 CELL REMOVED / DISCONNECTED: Cell(s) {', '.join(removed_indices)} reading floating open-circuit voltage ({min_v:.2f} V ~0.07 V). Cell appears physically REMOVED or DISCONNECTED from holder!"
+            detected_prob = f"🔌 CELL REMOVED / DISCONNECTED: Cell(s) {', '.join(removed_indices)} reading floating open-circuit voltage ({min_v:.3f} V ~0.07 V). Cell appears physically REMOVED or DISCONNECTED from holder!"
             rec_action = f"Check physical cell holder contact and re-insert Cell(s) {', '.join(removed_indices)} securely."
         elif zero_cells:
             severity = "CRITICAL"
             zero_indices = [str(c["index"]) for c in zero_cells]
-            detected_prob = f"🚨 CRITICAL DEAD CELL: Cell(s) {', '.join(zero_indices)} voltage is {min_v:.2f} V (depleted / dead cell under load). Replace Cell(s) {', '.join(zero_indices)} immediately!"
+            detected_prob = f"🚨 CRITICAL DEAD CELL: Cell(s) {', '.join(zero_indices)} voltage is {min_v:.3f} V (depleted / dead cell under load). Replace Cell(s) {', '.join(zero_indices)} immediately!"
             rec_action = f"Isolate battery pack and REPLACE Cell(s) {', '.join(zero_indices)} before operating!"
         elif is_low_net_v:
             severity = "CRITICAL"
-            detected_prob = f"⚠️ CRITICAL LOW VOLTAGE: Battery net pack voltage ({total_v:.2f} V < 7.5 V) is depleted."
+            detected_prob = f"⚠️ CRITICAL LOW VOLTAGE: Battery net pack voltage ({total_v:.3f} V < 7.5 V) is depleted."
             rec_action = "Connect pack to charger immediately and inspect cell balance."
         elif min_v <= 2.50 or imbalance_v >= 0.60 or temp_c > 55.0 or anomaly in ["critical_failure", "thermal_runaway"]:
             severity = "CRITICAL"
             weakest = min(cells_list, key=lambda c: c["voltage"])
-            detected_prob = f"Cell {weakest['index']} is at {min_v:.2f} V with severe pack imbalance {imbalance_v:.2f} V. Anomaly status: {anomaly}."
+            detected_prob = f"Cell {weakest['index']} is at {min_v:.3f} V with severe pack imbalance {imbalance_v:.3f} V. Anomaly status: {anomaly}."
             rec_action = f"Inspect Cell {weakest['index']}. Stop heavy discharge load immediately."
         elif min_v < 3.00 or imbalance_v >= 0.30 or temp_c > 45.0 or soh_pct < 80.0 or anomaly != "normal":
             severity = "WARNING"
-            detected_prob = f"Cell imbalance elevated to {imbalance_v:.2f} V with temp {temp_c:.1f} °C."
+            detected_prob = f"Cell imbalance elevated to {imbalance_v:.3f} V with temp {temp_c:.1f} °C."
             rec_action = "Monitor pack balance and allow thermal equalization on next charge."
         else:
             severity = "NORMAL"
-            detected_prob = f"Battery pack operating normally at {total_v:.2f} V."
+            detected_prob = f"Battery pack operating normally at {total_v:.3f} V."
             rec_action = "Continue standard monitoring."
 
         weakest = min(cells_list, key=lambda c: c["voltage"]) if cells_list else {"index": 1, "voltage": 3.6}
@@ -137,8 +153,8 @@ class AlertService:
         event_type = "RECOVERY" if reason == "RECOVERY" else "ALERT"
 
         if event_type == "RECOVERY":
-            detected_prob = f"🟢 HEALTHY: Battery pack net voltage is {total_v:.2f} V. Drained/disconnected cell replacement verified."
-            ai_assess = f"Battery pack condition has returned to normal healthy state ({total_v:.2f} V). Cell replacement or reconnection verified."
+            detected_prob = f"🟢 HEALTHY: Battery pack net voltage is {total_v:.3f} V. Drained/disconnected cell replacement verified."
+            ai_assess = f"Battery pack condition has returned to normal healthy state ({total_v:.3f} V). Cell replacement or reconnection verified."
             possible_causes = [
                 "Drained or damaged cell successfully replaced with healthy unit",
                 "Disconnected cell reconnected securely to battery holder",
@@ -146,7 +162,7 @@ class AlertService:
             ]
             rec_action = "No action required. Battery pack is operating normally within optimal parameters."
         else:
-            ai_assess = f"System detected {severity} condition for battery {battery_id}. Net V: {total_v:.2f} V, Imbalance: {imbalance_v:.2f} V, Temperature: {temp_c:.1f} °C, Anomaly: {anomaly}."
+            ai_assess = f"System detected {severity} condition for battery {battery_id}. Net V: {total_v:.3f} V, Imbalance: {imbalance_v:.3f} V, Temperature: {temp_c:.1f} °C, Anomaly: {anomaly}."
             possible_causes = [
                 "Internal cell degradation or impedance mismatch",
                 "Deep discharge or over-discharge state",
@@ -170,7 +186,8 @@ class AlertService:
             ai_assessment=ai_assess,
             possible_causes=possible_causes,
             recommended_action=rec_action,
-            event_type=event_type
+            event_type=event_type,
+            total_v=total_v
         )
 
         recipient = email_service.default_recipient

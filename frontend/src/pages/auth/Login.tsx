@@ -50,8 +50,8 @@ export function Login() {
       setUser(user)
       afterAuth()
     } catch (e: any) {
-      if (e?.message === 'REQUIRE_ACCOUNT_CHOOSER') {
-        setShowChooser(true)
+      if (e?.code === 'auth/popup-closed-by-user') {
+        setError('Sign-in popup was closed before completing.')
       } else {
         setError(e instanceof Error ? e.message : 'Google sign-in failed')
       }

@@ -25,47 +25,65 @@ class FirebaseService:
     def initialize_firebase(self) -> bool:
         return initialize_firebase()
 
+    def _fetch_telemetry_via_rest(self) -> Optional[Dict[str, Any]]:
+        import json
+        import urllib.request
+        from config import FIREBASE_DATABASE_URL
+        url = f"{FIREBASE_DATABASE_URL.rstrip('/')}/battery/live.json"
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "BlackBoxBackend/2.0"})
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                if resp.status == 200:
+                    raw_bytes = resp.read()
+                    data = json.loads(raw_bytes.decode("utf-8"))
+                    if isinstance(data, dict):
+                        return data
+        except Exception as e:
+            logger.debug(f"[FirebaseService] REST fallback error for {url}: {e}")
+        return None
+
     def fetch_live_telemetry(self) -> Optional[Dict[str, Any]]:
         """
         Reads live telemetry from Firebase Realtime Database at 'battery/live'.
         Extracts cell voltages, total voltage, temperatures, gas, and timestamp.
         Validates, sanitizes, and returns a normalized dictionary.
         """
-        if not self.initialized:
-            if not self.initialize_firebase():
-                logger.error("[FirebaseService] ERROR: Firebase Admin SDK is not initialized before telemetry read.")
-                return None
+        data = None
 
-        try:
-            if not self._logged_read_status:
-                apps_count = len(firebase_admin._apps) if firebase_admin._apps else 0
-                app_obj = firebase_admin.get_app() if firebase_admin._apps else None
-                project_id = app_obj.project_id if app_obj else "Unknown"
-                logger.info(f"[FirebaseService] Firebase apps initialized: {apps_count}")
-                logger.info(f"[FirebaseService] Firebase app project ID: {project_id}")
-                logger.info(f"[FirebaseService] Reading Firebase path: battery/live")
-                self._logged_read_status = True
+        if self.initialized:
+            try:
+                if not self._logged_read_status:
+                    apps_count = len(firebase_admin._apps) if firebase_admin._apps else 0
+                    app_obj = firebase_admin.get_app() if firebase_admin._apps else None
+                    project_id = app_obj.project_id if app_obj else "Unknown"
+                    logger.info(f"[FirebaseService] Firebase apps initialized: {apps_count}")
+                    logger.info(f"[FirebaseService] Firebase app project ID: {project_id}")
+                    logger.info(f"[FirebaseService] Reading Firebase path: battery/live")
+                    self._logged_read_status = True
 
-            live_ref = db.reference("battery/live")
-            data = live_ref.get()
+                live_ref = db.reference("battery/live")
+                data = live_ref.get()
 
-            if not data or not isinstance(data, dict):
-                # Fallback: check if history exists
-                hist_ref = db.reference("battery/history")
-                hist_data = hist_ref.get()
-                if hist_data and isinstance(hist_data, dict):
-                    # Pick latest entry from history
-                    keys = list(hist_data.keys())
-                    data = hist_data[keys[-1]]
-                else:
-                    logger.warning("[FirebaseService] No telemetry data found at battery/live or battery/history.")
-                    return None
+                if not data or not isinstance(data, dict):
+                    # Fallback: check if history exists
+                    hist_ref = db.reference("battery/history")
+                    hist_data = hist_ref.get()
+                    if hist_data and isinstance(hist_data, dict):
+                        keys = list(hist_data.keys())
+                        data = hist_data[keys[-1]]
+            except Exception as e:
+                logger.warning(f"[FirebaseService] Admin SDK read failed ({e}), attempting REST fallback...")
 
-            return self._parse_and_validate(data)
+        if not data or not isinstance(data, dict):
+            data = self._fetch_telemetry_via_rest()
 
-        except Exception as e:
-            logger.error(f"[FirebaseService] Error reading Firebase live telemetry: {e}")
+        if not data or not isinstance(data, dict):
+            if not self._warned_uninitialized:
+                logger.warning("[FirebaseService] No telemetry data found at battery/live or battery/history.")
+                self._warned_uninitialized = True
             return None
+
+        return self._parse_and_validate(data)
 
     def _parse_and_validate(self, raw_data: Dict[str, Any]) -> Dict[str, Any]:
         """

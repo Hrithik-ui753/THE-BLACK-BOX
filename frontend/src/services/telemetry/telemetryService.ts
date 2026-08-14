@@ -6,7 +6,7 @@ import { fmtMv, fmtTemp } from '@/utils/format'
 
 export type TelemetryMode = 'backend' | 'simulation' | 'firebase'
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'
+import { BACKEND_URL } from '@/config/api'
 
 function configuredMode(): TelemetryMode {
   const envMode = import.meta.env.VITE_TELEMETRY_MODE
@@ -422,7 +422,7 @@ class TelemetryService {
       const app = getApps().length ? getApp() : initializeApp({
         apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
         authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-        databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL || 'https://black-box-24537-default-rtdb.firebaseio.com',
+        databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL || 'https://black-box-9aa5e-default-rtdb.firebaseio.com',
         projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
         storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
         messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,

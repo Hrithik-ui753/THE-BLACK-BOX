@@ -1,21 +1,18 @@
-# Environment Files
+# Environment & Secret Files
 .env
 .env.*
 !.env.example
-
-# Credentials and Secret Files
-serviceAccountKey.json
+backend/.env
+backend/.env.*
+!backend/.env.example
 **/serviceAccountKey.json
+google-services.json
 
-# Ignore generic JSON files except explicit project source files
-*.json
-!frontend/package.json
-!frontend/package-lock.json
-!frontend/tsconfig.json
-!frontend/firebase.rules.json
-
-# Local/tool-generated files
+# Local / IDE / tool-generated files
 .freebuff/
+.DS_Store
+Thumbs.db
+*.log
 
 # Python & Virtual Environments
 __pycache__/
@@ -23,7 +20,6 @@ __pycache__/
 .venv/
 venv/
 env/
-*.log
 
 # ML Models & Datasets
 *.joblib
@@ -36,6 +32,3 @@ env/
 node_modules/
 dist/
 build/
-
-# OS
-.DS_Store

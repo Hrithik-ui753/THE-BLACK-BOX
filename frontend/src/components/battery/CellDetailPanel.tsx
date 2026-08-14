@@ -38,10 +38,10 @@ export function CellDetailPanel({
   const history = usePackHistory(battery.id)
   const [insight, setInsight] = useState<ReturnType<typeof aiService.getCellInsight> | null>(null)
 
-  const cell = cellIndex != null ? livePack.cells.find((c) => c.index === cellIndex) : undefined
+  const cell = cellIndex != null ? livePack?.cells?.find((c) => c.index === cellIndex) : undefined
 
   useEffect(() => {
-    if (cellIndex != null && cell) {
+    if (cellIndex != null && cell && livePack) {
       setInsight(aiService.getCellInsight(battery, livePack, cell))
     } else {
       setInsight(null)
@@ -51,17 +51,17 @@ export function CellDetailPanel({
   const trendOption = useMemo(() => {
     if (cellIndex == null) return undefined
     const samples = downsample(
-      history.filter((h) => h.cells.some((c) => c.index === cellIndex)),
+      (history || []).filter((h) => h?.cells?.some((c) => c.index === cellIndex)),
       isMobile ? 25 : 60,
     )
     const times = samples.map((h) => new Date(h.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }))
-    const volts = samples.map((h) => h.cells.find((c) => c.index === cellIndex)?.voltage ?? null)
+    const volts = samples.map((h) => h?.cells?.find((c) => c.index === cellIndex)?.voltage ?? null)
     return baseLineOption(
       times,
       [
         lineSeries(volts, { name: `Cell ${cellIndex} Live Voltage`, color: cell?.status === 'critical' ? CHART_CRITICAL : cell?.status === 'warning' ? CHART_WARNING : CHART_ACCENT, smooth: true }),
         lineSeries(
-          samples.map((h) => h.cells.reduce((a, c) => a + c.voltage, 0) / (h.cells.length || 1)),
+          samples.map((h) => (h?.cells || []).reduce((a, c) => a + c.voltage, 0) / (h?.cells?.length || 1)),
           {
             name: 'Pack Average Voltage',
             color: '#5d7390',
@@ -78,7 +78,8 @@ export function CellDetailPanel({
 
   const isRemoved = cell.status === 'CELL_REMOVED' || cell.voltage <= 0.15
   const sohVal = cell.soh ?? 94
-  const packMeanV = livePack.cells.reduce((acc, c) => acc + c.voltage, 0) / (livePack.cells.length || 1)
+  const cellsArr = livePack?.cells || []
+  const packMeanV = cellsArr.length ? cellsArr.reduce((acc, c) => acc + c.voltage, 0) / cellsArr.length : 3.7
   const cellDevMv = (cell.voltage - packMeanV) * 1000
   const esrEstimate = isRemoved ? 'N/A' : `${(12.5 + (4.2 - cell.voltage) * 2.8).toFixed(1)} mΩ`
 
@@ -131,23 +132,23 @@ export function CellDetailPanel({
             { label: 'AI Anomaly Risk', value: fmtPct((cell.risk ?? (cell.status === 'healthy' ? 0.05 : 0.25)) * 100, 0), icon: Bot, accent: (cell.risk ?? 0.05) > 0.4 ? 'critical' : (cell.risk ?? 0.05) > 0.2 ? 'warning' : 'healthy', sub: 'Failure Hazard Score' },
           ].map((m) => (
             <div key={m.label} className="bg-surface px-3 py-3">
-              <div className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-faint">
+              <div className="flex items-center gap-1 text-[9px] font-extrabold uppercase tracking-wider text-slate-600">
                 <m.icon className="h-3 w-3" /> {m.label}
               </div>
               <div
                 className={
                   m.accent === 'critical'
-                    ? 'mt-1 text-sm font-black tabular-nums text-critical'
+                    ? 'mt-1 text-sm font-black tabular-nums text-rose-600 font-sans'
                     : m.accent === 'warning'
-                      ? 'mt-1 text-sm font-black tabular-nums text-warning'
+                      ? 'mt-1 text-sm font-black tabular-nums text-amber-600 font-sans'
                       : m.accent === 'healthy'
-                        ? 'mt-1 text-sm font-black tabular-nums text-healthy'
-                        : 'mt-1 text-sm font-black tabular-nums text-accent'
+                        ? 'mt-1 text-sm font-black tabular-nums text-emerald-600 font-sans'
+                        : 'mt-1 text-sm font-black tabular-nums text-orange-600 font-sans'
                 }
               >
                 {m.value}
               </div>
-              <span className="block text-[8px] font-medium text-muted mt-0.5">{m.sub}</span>
+              <span className="block text-[9px] font-bold text-slate-500 mt-0.5">{m.sub}</span>
             </div>
           ))}
         </div>

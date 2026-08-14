@@ -52,9 +52,21 @@ app = FastAPI(
 
 # CORS Configuration
 client_origin = os.getenv("CLIENT_ORIGIN", "http://localhost:5173")
+allowed_origins = [
+    client_origin,
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:3000",
+    "https://black-box-9aa5e.web.app",
+    "https://black-box-9aa5e.firebaseapp.com"
+]
+# Clean up duplicate origins
+allowed_origins = list(set([o for o in allowed_origins if o]))
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[client_origin, "http://localhost:5173", "http://127.0.0.1:5173", "*"],
+    allow_origins=allowed_origins,
+    allow_origin_regex=r"https://.*\.vercel\.app|https://.*\.onrender\.com|http://localhost:\d+|http://127\.0\.0\.1:\d+",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -104,7 +116,7 @@ def health_check():
     return {
         "status": "ok",
         "techstack": "Python REST API (FastAPI)",
-        "project": "black-box-24537",
+        "project": "black-box-9aa5e",
         "firebase_sdk": "python-firebase-admin",
         "ml_service": "loaded" if ml_service.loaded else "error",
         "supabase_connected": True

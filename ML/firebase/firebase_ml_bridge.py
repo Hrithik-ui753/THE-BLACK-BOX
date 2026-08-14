@@ -15,7 +15,7 @@ from firebase_admin import db
 SERVICE_ACCOUNT = "serviceAccountKey.json"
 
 DATABASE_URL = (
-    "https://black-box-24537-default-rtdb.firebaseio.com/"
+    "https://black-box-9aa5e-default-rtdb.firebaseio.com/"
 )
 
 

@@ -5,7 +5,7 @@ import { Printer, FileText, CheckCircle2, Cpu, Activity, Calculator, Sparkles, S
 import { usePack } from '@/hooks/usePack'
 import type { DiagnosticReport, MetricSource } from '@/types'
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'
+import { BACKEND_URL } from '@/config/api'
 
 export interface BatteryReportModalProps {
   open: boolean

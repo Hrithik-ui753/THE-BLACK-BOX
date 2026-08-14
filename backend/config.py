@@ -17,9 +17,9 @@ DEFAULT_BATTERY_ID = os.getenv("DEFAULT_BATTERY_ID", "164de9f0-62ee-411a-b8b9-a7
 # Firebase configuration
 FIREBASE_DATABASE_URL = os.getenv(
     "FIREBASE_DATABASE_URL", 
-    "https://black-box-24537-default-rtdb.firebaseio.com/"
+    "https://black-box-9aa5e-default-rtdb.firebaseio.com/"
 )
-FIREBASE_PROJECT_ID = os.getenv("FIREBASE_PROJECT_ID", "black-box-24537")
+FIREBASE_PROJECT_ID = os.getenv("FIREBASE_PROJECT_ID", "black-box-9aa5e")
 
 # Service Account Key search paths
 SERVICE_ACCOUNT_PATHS = [
@@ -36,7 +36,11 @@ def get_service_account_path() -> str:
 
 # Supabase configuration
 SUPABASE_URL = os.getenv("SUPABASE_URL", "https://umfifxbyykzxzodocgtm.supabase.co")
-SUPABASE_KEY = os.getenv("SUPABASE_SECRET_KEY")
+SUPABASE_KEY = (
+    os.getenv("SUPABASE_SECRET_KEY")
+    or os.getenv("SUPABASE_KEY")
+    or ""
+)
 
 # Azure OpenAI configuration
 AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY")

@@ -173,36 +173,42 @@ class EmailAlertService:
         ai_assessment: str,
         possible_causes: List[str],
         recommended_action: str,
-        event_type: str = "ALERT"
+        event_type: str = "ALERT",
+        total_v: float = 0.0
     ) -> tuple[str, str, str]:
         """Formats the Subject, Plain Text Body, and HTML Body according to the required template."""
         
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")
 
-        # Subject Formatting
+        # Calculate total pack voltage if not explicitly passed
+        if total_v <= 0.0 and cells_data:
+            total_v = sum(float(c.get("voltage", 0.0)) for c in cells_data)
+
+        # Subject Formatting (3-decimal voltage precision)
         if event_type == "RECOVERY":
             subject = f"🟢 THE BLACK BOX — BATTERY CONDITION RECOVERED: {battery_name}"
         else:
             sev_icon = "🔴" if severity == "CRITICAL" else "🟠" if severity == "HIGH_RISK" else "🟡"
-            weakest = min(cells_data, key=lambda c: c.get("voltage", 99.0)) if cells_data else {}
-            weakest_str = f"CELL {weakest.get('index', 3)} VOLTAGE {weakest.get('voltage', 1.10):.2f} V" if weakest else ""
+            weakest = min(cells_data, key=lambda c: float(c.get("voltage", 99.0))) if cells_data else {}
+            weakest_v = float(weakest.get("voltage", 1.10)) if weakest else 1.10
+            weakest_str = f"CELL {weakest.get('index', 3)} VOLTAGE {weakest_v:.3f} V" if weakest else ""
             subject = f"{sev_icon} THE BLACK BOX — {severity} BATTERY ALERT: {weakest_str}"
 
-        # Cell List Formatting
+        # Cell List Formatting (3-decimal voltage precision)
         cell_lines_text = []
         cell_rows_html = []
 
         for cell in cells_data:
             idx = cell.get("index", 1)
-            v = cell.get("voltage", 3.60)
-            st = cell.get("status", "healthy").upper()
-            st_icon = "🔴" if st == "CRITICAL" else "🟡" if st == "WARNING" else "🟢"
-            cell_lines_text.append(f"- Cell {idx}: {v:.2f} V — {st}")
+            v = float(cell.get("voltage", 3.60))
+            st = str(cell.get("status", "healthy")).upper()
+            st_icon = "🔴" if st in ["CRITICAL", "CELL_REMOVED"] else "🟡" if st == "WARNING" else "🟢"
+            cell_lines_text.append(f"- Cell {idx}: {v:.3f} V — {st}")
             cell_rows_html.append(f"""
                 <tr>
-                    <td style="padding: 8px; border-bottom: 1px solid #334155; font-weight: bold;">Cell {idx}</td>
-                    <td style="padding: 8px; border-bottom: 1px solid #334155; text-align: right; font-family: monospace; font-size: 14px;">{v:.2f} V</td>
-                    <td style="padding: 8px; border-bottom: 1px solid #334155; text-align: right; font-weight: bold;">{st_icon} {st}</td>
+                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; font-weight: bold; color: #000000;">Cell {idx}</td>
+                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; text-align: right; font-family: monospace; font-size: 14px; font-weight: bold; color: #000000;">{v:.3f} V</td>
+                    <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: bold; color: #000000;">{st_icon} {st}</td>
                 </tr>
             """)
 
@@ -222,9 +228,10 @@ Status: 🟢 NORMAL RECOVERED
 - Battery Unit: {battery_name} ({battery_id})
 - Battery Health: {health_score}/100 — NORMAL
 - SOH: {soh_pct:.1f}%
+- Net Pack Voltage: {total_v:.3f} V
 - Overall Risk: LOW
 
-Cell 3 voltage and pack cell imbalance have returned to configured safe operating bounds.
+Cell voltage and pack cell imbalance have returned to configured safe operating bounds.
 
 Previous Status: {severity}
 Current Status: NORMAL
@@ -242,6 +249,7 @@ Severity: {sev_badge}
 - Battery Unit: {battery_name} ({battery_id})
 - Battery Health: {health_score}/100
 - SOH: {soh_pct:.1f}%
+- Net Pack Voltage: {total_v:.3f} V
 - Overall Risk: {overall_risk}
 - Anomaly Score: {anomaly_score}/100
 
@@ -250,9 +258,10 @@ Severity: {sev_badge}
 
 ### Detected Problem
 {detected_problem}
-Maximum cell voltage: {max_v:.2f} V
-Minimum cell voltage: {min_v:.2f} V
-Cell imbalance: {imbalance_v:.2f} V
+Net Pack Voltage: {total_v:.3f} V
+Maximum cell voltage: {max_v:.3f} V
+Minimum cell voltage: {min_v:.3f} V
+Cell imbalance: {imbalance_v:.3f} V
 
 ### AI Assessment
 {ai_assessment}
@@ -270,9 +279,8 @@ Timestamp: {now_str}
 THE BLACK BOX — SENSE → ANALYZE → DETECT → PREDICT → ALERT → PREVENT
 """
 
-        # RICH HTML EMAIL TEMPLATE
-        bg_color = "#0f172a"
-        card_border = "#ef4444" if severity == "CRITICAL" else "#f59e0b" if severity == "WARNING" else "#22d3ee"
+        # RICH WHITE BG HTML EMAIL TEMPLATE (BLACK TEXT)
+        card_border = "#dc2626" if severity == "CRITICAL" else "#d97706" if severity == "WARNING" else "#059669"
         
         html_body = f"""
         <!DOCTYPE html>
@@ -280,21 +288,21 @@ THE BLACK BOX — SENSE → ANALYZE → DETECT → PREDICT → ALERT → PREVENT
         <head>
           <meta charset="utf-8">
           <style>
-            body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #020617; color: #f8fafc; margin: 0; padding: 20px; }}
-            .container {{ max-width: 600px; margin: 0 auto; background-color: {bg_color}; border: 2px solid {card_border}; border-radius: 16px; padding: 24px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5); }}
-            .header {{ text-align: center; border-bottom: 1px solid #334155; padding-bottom: 16px; margin-bottom: 20px; }}
-            .title {{ font-size: 20px; font-weight: 900; color: #ffffff; letter-spacing: 0.5px; margin: 0; }}
-            .badge {{ display: inline-block; padding: 4px 12px; border-radius: 9999px; font-size: 12px; font-weight: 800; text-transform: uppercase; margin-top: 8px; }}
-            .badge-critical {{ background-color: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid #ef4444; }}
-            .badge-warning {{ background-color: rgba(245, 158, 11, 0.2); color: #f59e0b; border: 1px solid #f59e0b; }}
-            .badge-recovery {{ background-color: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid #10b981; }}
-            .section-title {{ font-size: 13px; font-weight: 800; text-transform: uppercase; color: #94a3b8; letter-spacing: 1px; margin-top: 20px; margin-bottom: 8px; }}
-            .metric-grid {{ display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 16px; }}
-            .metric-card {{ background-color: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 12px; text-align: center; }}
-            .metric-val {{ font-size: 18px; font-weight: 900; color: #ffffff; margin-top: 4px; }}
-            table {{ width: 100%; border-collapse: collapse; margin-top: 10px; }}
-            .alert-box {{ background-color: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; border-radius: 12px; padding: 16px; margin-top: 20px; font-size: 13px; line-height: 1.6; }}
-            .footer {{ text-align: center; border-top: 1px solid #334155; padding-top: 16px; margin-top: 24px; font-size: 11px; color: #64748b; font-weight: bold; }}
+            body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #ffffff; color: #000000; margin: 0; padding: 20px; }}
+            .container {{ max-width: 600px; margin: 0 auto; background-color: #ffffff; border: 2px solid {card_border}; border-radius: 16px; padding: 24px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08); }}
+            .header {{ text-align: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 16px; margin-bottom: 20px; }}
+            .title {{ font-size: 20px; font-weight: 900; color: #000000; letter-spacing: 0.5px; margin: 0; }}
+            .badge {{ display: inline-block; padding: 4px 14px; border-radius: 9999px; font-size: 12px; font-weight: 800; text-transform: uppercase; margin-top: 8px; }}
+            .badge-critical {{ background-color: #fef2f2; color: #dc2626; border: 1.5px solid #fecaca; }}
+            .badge-warning {{ background-color: #fffbeb; color: #d97706; border: 1.5px solid #fde68a; }}
+            .badge-recovery {{ background-color: #f0fdf4; color: #059669; border: 1.5px solid #bbf7d0; }}
+            .section-title {{ font-size: 13px; font-weight: 900; text-transform: uppercase; color: #000000; letter-spacing: 1px; margin-top: 22px; margin-bottom: 10px; border-left: 3px solid {card_border}; padding-left: 8px; }}
+            .metric-grid {{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }}
+            .metric-card {{ background-color: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 12px; text-align: center; }}
+            .metric-val {{ font-size: 17px; font-weight: 900; color: #000000; margin-top: 4px; font-family: monospace; }}
+            table {{ width: 100%; border-collapse: collapse; margin-top: 10px; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; }}
+            .alert-box {{ background-color: #ffffff; border: 2px solid #dc2626; border-radius: 12px; padding: 16px; margin-top: 20px; font-size: 13px; line-height: 1.6; color: #000000; }}
+            .footer {{ text-align: center; border-top: 2px solid #e2e8f0; padding-top: 16px; margin-top: 24px; font-size: 11px; color: #000000; font-weight: 700; }}
           </style>
         </head>
         <body>
@@ -309,11 +317,15 @@ THE BLACK BOX — SENSE → ANALYZE → DETECT → PREDICT → ALERT → PREVENT
             <div class="section-title">Battery Summary</div>
             <div class="metric-grid">
               <div class="metric-card">
-                <div style="font-size: 10px; color: #94a3b8; font-weight: bold; text-transform: uppercase;">Battery Health</div>
+                <div style="font-size: 10px; color: #000000; font-weight: 800; text-transform: uppercase;">Pack Voltage</div>
+                <div class="metric-val">{total_v:.3f} V</div>
+              </div>
+              <div class="metric-card">
+                <div style="font-size: 10px; color: #000000; font-weight: 800; text-transform: uppercase;">Battery Health</div>
                 <div class="metric-val">{health_score} / 100</div>
               </div>
               <div class="metric-card">
-                <div style="font-size: 10px; color: #94a3b8; font-weight: bold; text-transform: uppercase;">State of Health (SOH)</div>
+                <div style="font-size: 10px; color: #000000; font-weight: 800; text-transform: uppercase;">SOH</div>
                 <div class="metric-val">{soh_pct:.1f}%</div>
               </div>
             </div>
@@ -321,10 +333,10 @@ THE BLACK BOX — SENSE → ANALYZE → DETECT → PREDICT → ALERT → PREVENT
             <div class="section-title">Cell Status</div>
             <table>
               <thead>
-                <tr style="background-color: #1e293b; color: #94a3b8; font-size: 11px; text-transform: uppercase;">
-                  <th style="padding: 8px; text-align: left;">Cell</th>
-                  <th style="padding: 8px; text-align: right;">Voltage</th>
-                  <th style="padding: 8px; text-align: right;">Status</th>
+                <tr style="background-color: #ffffff; color: #000000; font-size: 11px; text-transform: uppercase; font-weight: 900;">
+                  <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0;">Cell Channel</th>
+                  <th style="padding: 10px; text-align: right; border-bottom: 2px solid #e2e8f0;">Voltage</th>
+                  <th style="padding: 10px; text-align: right; border-bottom: 2px solid #e2e8f0;">Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -333,23 +345,23 @@ THE BLACK BOX — SENSE → ANALYZE → DETECT → PREDICT → ALERT → PREVENT
             </table>
 
             <div class="section-title">Detected Issue</div>
-            <p style="font-size: 13px; color: #cbd5e1; margin-top: 4px; line-height: 1.5;">
+            <p style="font-size: 13px; color: #000000; font-weight: 600; margin-top: 6px; line-height: 1.6; background-color: #ffffff; padding: 12px; border-radius: 10px; border: 1px solid #e2e8f0;">
               {detected_problem}
               <br><br>
-              <strong>Max Voltage:</strong> {max_v:.2f} V &nbsp;|&nbsp; <strong>Min Voltage:</strong> {min_v:.2f} V &nbsp;|&nbsp; <strong style="color: #ef4444;">Imbalance:</strong> {imbalance_v:.2f} V
+              <strong style="color: #000000;">Net Pack V:</strong> {total_v:.3f} V &nbsp;|&nbsp; <strong style="color: #000000;">Max V:</strong> {max_v:.3f} V &nbsp;|&nbsp; <strong style="color: #000000;">Min V:</strong> {min_v:.3f} V &nbsp;|&nbsp; <strong style="color: #dc2626;">Imbalance:</strong> {imbalance_v:.3f} V
             </p>
 
             <div class="section-title">AI Pattern Assessment</div>
-            <p style="font-size: 13px; color: #cbd5e1; margin-top: 4px; line-height: 1.5;">
+            <p style="font-size: 13px; color: #000000; font-weight: 600; margin-top: 6px; line-height: 1.6;">
               {ai_assessment}
             </p>
-            <ul style="font-size: 12px; color: #94a3b8; margin-top: 6px; padding-left: 20px;">
+            <ul style="font-size: 12px; color: #000000; font-weight: 600; margin-top: 6px; padding-left: 20px; line-height: 1.6;">
               {causes_html_block}
             </ul>
 
             <div class="alert-box">
-              <strong style="color: #ef4444; text-transform: uppercase; letter-spacing: 0.5px;">Recommended Action Protocol:</strong>
-              <p style="margin: 6px 0 0 0; color: #ffffff; font-weight: bold;">
+              <strong style="color: #dc2626; text-transform: uppercase; letter-spacing: 0.5px; font-size: 12px;">Recommended Action Protocol:</strong>
+              <p style="margin: 6px 0 0 0; color: #000000; font-weight: 800; font-size: 13px;">
                 {recommended_action}
               </p>
             </div>
@@ -357,7 +369,7 @@ THE BLACK BOX — SENSE → ANALYZE → DETECT → PREDICT → ALERT → PREVENT
             <div class="footer">
               Generated automatically by THE BLACK BOX Battery Monitoring Engine<br>
               Timestamp: {now_str}<br><br>
-              <strong>SENSE → ANALYZE → DETECT → PREDICT → ALERT → PREVENT</strong>
+              <strong style="color: #000000;">SENSE → ANALYZE → DETECT → PREDICT → ALERT → PREVENT</strong>
             </div>
           </div>
         </body>

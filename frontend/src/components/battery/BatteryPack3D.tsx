@@ -81,7 +81,7 @@ const Cell = memo(function Cell({
       st.telemetry['battery-01'] ||
       Object.values(st.telemetry)[0]
 
-    const cell = pack?.cells.find((c) => c.index === index)
+    const cell = pack?.cells?.find((c) => c.index === index)
     const v = cell?.voltage ?? (index === 1 ? 3.799 : index === 2 ? 3.555 : 3.391)
     const temp = cell?.temperature ?? 27.14
     const isRemoved = cell?.status === 'CELL_REMOVED' || cell?.mlSkipped || v <= 0.15
@@ -363,7 +363,7 @@ function GasHaze({ batteryId }: { batteryId: string }) {
       Object.values(st.telemetry)[0]
 
     const t = clock.elapsedTime
-    pack?.cells.forEach((cell) => {
+    pack?.cells?.forEach((cell) => {
       const spr = sprites.current[cell.index - 1]
       if (!spr) return
       const gas = cell.gas

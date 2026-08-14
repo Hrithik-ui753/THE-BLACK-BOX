@@ -108,7 +108,7 @@ export function BatteryPack2D({
         {/* Render 3 Cells */}
         {Array.from({ length: Math.min(cellCount, 3) }, (_, i) => {
           const index = i + 1
-          const cell = pack?.cells.find((c) => c.index === index)
+          const cell = pack?.cells?.find((c) => c.index === index)
           const status = cell?.status ?? (i === 1 && !isIntegratedMode ? 'warning' : 'healthy')
           const color = STATUS_COLOR[status]
           const selected = selectedCell === index

@@ -103,8 +103,21 @@ def initialize_firebase() -> bool:
         try:
             key_path = get_service_account_path()
             if Path(key_path).exists():
-                cred = credentials.Certificate(key_path)
-                cred_source = f"local serviceAccountKey.json file at '{key_path}'"
+                file_content = Path(key_path).read_text(encoding="utf-8")
+                key_dict = json.loads(file_content)
+                if isinstance(key_dict, dict) and "project_info" in key_dict:
+                    proj_info = key_dict["project_info"]
+                    if "firebase_url" in proj_info:
+                        database_url = proj_info["firebase_url"]
+                    if "project_id" in proj_info:
+                        project_id = proj_info["project_id"]
+                    logger.info(f"[FirebaseAdmin] Extracted RTDB URL '{database_url}' and Project ID '{project_id}' from local key file.")
+
+                if isinstance(key_dict, dict) and key_dict.get("type") == "service_account":
+                    cred = credentials.Certificate(key_path)
+                    cred_source = f"local serviceAccountKey.json file at '{key_path}'"
+                else:
+                    logger.info(f"[FirebaseAdmin] Local file at '{key_path}' contains client configuration for project '{project_id}'.")
         except Exception as e:
             logger.warning(f"[FirebaseAdmin] Could not load certificate from local key file: {e}")
 

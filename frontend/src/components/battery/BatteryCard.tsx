@@ -84,30 +84,29 @@ export function BatteryCard({ battery, pack, index }: { battery: Battery; pack: 
           </div>
         </div>
 
-        {/* Option 2 Explicit 3-Cell Individual Voltage Breakdown */}
         <div className="mt-3.5 rounded-xl border border-line bg-background-2/70 p-2.5">
-          <div className="flex items-center justify-between text-[10px] font-extrabold uppercase text-muted">
+          <div className="flex items-center justify-between text-[10px] font-extrabold uppercase text-foreground">
             <span>3 Individual Cells Voltages</span>
-            <span>{pack?.presentCells ? `${pack.presentCells} Present` : '3/3 Present'}</span>
+            <span className="text-accent">{pack?.presentCells ? `${pack.presentCells} Present` : '3/3 Present'}</span>
           </div>
           <div className="mt-2 grid grid-cols-3 gap-1.5 text-center text-xs font-black">
             {[0, 1, 2].map((idx) => {
               const cell = pack?.cells?.[idx]
-              const v = cell?.voltage ?? (idx === 0 ? 3.8 : idx === 1 ? 3.56 : 3.39)
+              const v = cell?.voltage ?? (idx === 0 ? 3.799 : idx === 1 ? 3.555 : 3.391)
               const isRemoved = v <= 0.15 || cell?.status === 'CELL_REMOVED'
               return (
                 <div
                   key={idx}
-                  className={`rounded-lg border py-1 ${
+                  className={`rounded-lg border px-1 py-1.5 transition-all ${
                     isRemoved
-                      ? 'border-amber-500/40 bg-amber-500/10 text-amber-400'
+                      ? 'border-amber-500/40 bg-amber-500/15 text-amber-900'
                       : v <= 2.5
-                      ? 'border-critical/40 bg-critical/10 text-critical'
-                      : 'border-healthy/40 bg-healthy/10 text-healthy'
+                      ? 'border-rose-500/40 bg-rose-500/15 text-rose-900'
+                      : 'border-emerald-500/40 bg-emerald-500/15 text-emerald-900'
                   }`}
                 >
-                  <span className="block text-[8px] font-bold text-faint">Cell 0{idx + 1}</span>
-                  {isRemoved ? 'REMOVED' : `${v.toFixed(2)}V`}
+                  <span className="block text-[8px] font-bold uppercase text-slate-600">Cell 0{idx + 1}</span>
+                  <span className="text-xs font-black tabular-nums">{isRemoved ? 'REMOVED' : `${v.toFixed(3)}V`}</span>
                 </div>
               )
             })}

@@ -6,7 +6,7 @@ from firebase_admin import credentials, db
 
 BASE_DIR = Path(__file__).resolve().parent
 
-DATABASE_URL = "https://black-box-24537-default-rtdb.firebaseio.com/"
+DATABASE_URL = "https://black-box-9aa5e-default-rtdb.firebaseio.com/"
 SERVICE_ACCOUNT = BASE_DIR / "serviceAccountKey.json"
 
 print("Database URL:", DATABASE_URL)

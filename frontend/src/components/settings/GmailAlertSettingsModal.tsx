@@ -43,44 +43,44 @@ export function GmailAlertSettingsModal({ open, onClose }: GmailAlertSettingsMod
   }
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()} className="max-w-xl p-6">
-      <div className="flex items-center justify-between border-b border-line pb-4">
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()} className="max-w-xl p-6 bg-white text-black border border-slate-200">
+      <div className="flex items-center justify-between border-b border-slate-200 pb-4">
         <div className="flex items-center gap-2.5">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-accent/30 bg-accent/10">
-            <Mail className="h-5 w-5 text-accent" />
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-blue-200 bg-blue-50">
+            <Mail className="h-5 w-5 text-blue-600" />
           </span>
           <div>
-            <h2 className="text-lg font-black tracking-tight text-foreground">
+            <h2 className="text-lg font-black tracking-tight text-black">
               📧 Automatic Gmail Battery Alert System
             </h2>
-            <p className="text-xs text-muted">
+            <p className="text-xs text-slate-500 font-medium">
               Configure SMTP recipient & automated smart alert triggers
             </p>
           </div>
         </div>
 
-        <Button size="sm" variant="ghost" onClick={onClose}>
+        <Button size="sm" variant="ghost" onClick={onClose} className="text-slate-500 hover:text-black hover:bg-slate-100">
           ✕
         </Button>
       </div>
 
-      <div className="mt-5 space-y-5 text-xs text-foreground font-sans">
+      <div className="mt-5 space-y-5 text-xs text-black font-sans">
         {/* Status Banner */}
-        <div className="flex items-center justify-between rounded-2xl border border-line bg-background-2/80 p-3.5">
+        <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 p-3.5">
           <div className="flex items-center gap-2">
-            <span className={`h-2.5 w-2.5 rounded-full ${config?.isConfigured ? 'bg-healthy status-dot-pulse' : 'bg-warning'}`} />
-            <span className="font-bold">
+            <span className={`h-2.5 w-2.5 rounded-full ${config?.isConfigured ? 'bg-emerald-500 status-dot-pulse' : 'bg-amber-500'}`} />
+            <span className="font-bold text-black">
               {config?.isConfigured ? 'Gmail SMTP Server Connected' : 'Gmail Credentials Not Set in backend/.env'}
             </span>
           </div>
-          <span className="text-[10px] font-bold text-faint uppercase">
+          <span className="text-[10px] font-bold text-slate-500 uppercase font-mono">
             {config?.smtpHost}:{config?.smtpPort}
           </span>
         </div>
 
         {/* Recipient Email Config */}
         <div className="space-y-1.5">
-          <label className="block text-xs font-black uppercase text-foreground">
+          <label className="block text-xs font-black uppercase text-black">
             Alert Recipient Email Address
           </label>
           <div className="flex items-center gap-2">
@@ -89,22 +89,22 @@ export function GmailAlertSettingsModal({ open, onClose }: GmailAlertSettingsMod
               placeholder="e.g. safety-engineer@example.com"
               value={recipient}
               onChange={(e) => setRecipient(e.target.value)}
-              className="flex-1 font-medium"
+              className="flex-1 font-medium bg-white text-black border-slate-300 placeholder:text-slate-400 focus:border-slate-500 focus:ring-slate-400"
             />
-            <Button onClick={handleTestAlert} disabled={loading} className="gap-1.5 font-bold shrink-0">
+            <Button onClick={handleTestAlert} disabled={loading} className="gap-1.5 font-bold shrink-0 bg-black text-white hover:bg-slate-800">
               {loading ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
               Send Test Alert
             </Button>
           </div>
-          <p className="text-[10px] text-faint">
+          <p className="text-[10px] text-slate-500 font-medium">
             Target email for critical cell voltage, severe imbalance, and thermal runaway alerts.
           </p>
         </div>
 
         {/* Feedback Alert Box */}
         {testResult && (
-          <div className={`flex items-start gap-2.5 rounded-xl border p-3.5 ${testResult.success ? 'border-healthy/40 bg-healthy/10 text-healthy' : 'border-critical/40 bg-critical/10 text-critical'}`}>
-            {testResult.success ? <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" /> : <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />}
+          <div className={`flex items-start gap-2.5 rounded-xl border p-3.5 ${testResult.success ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-red-200 bg-red-50 text-red-900'}`}>
+            {testResult.success ? <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5 text-emerald-600" /> : <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-red-600" />}
             <div className="font-bold">
               <span>{testResult.message}</span>
             </div>
@@ -112,40 +112,40 @@ export function GmailAlertSettingsModal({ open, onClose }: GmailAlertSettingsMod
         )}
 
         {/* Smart Alerting Rules Info Box */}
-        <div className="rounded-2xl border border-accent/30 bg-accent/10 p-4 space-y-2">
-          <div className="flex items-center gap-2 font-black text-accent-soft">
-            <ShieldCheck className="h-4 w-4 text-accent" />
+        <div className="rounded-2xl border border-blue-200 bg-blue-50/60 p-4 space-y-2">
+          <div className="flex items-center gap-2 font-black text-blue-900">
+            <ShieldCheck className="h-4 w-4 text-blue-600" />
             <span>Smart Deduplication & Recovery Rules</span>
           </div>
-          <ul className="space-y-1 text-muted font-medium text-[11px] list-disc list-inside">
+          <ul className="space-y-1 text-slate-700 font-medium text-[11px] list-disc list-inside">
             <li><strong>First Detection:</strong> Dispatches instant alert email to recipient.</li>
             <li><strong>Condition Persists:</strong> Suppresses duplicate emails to avoid spam.</li>
             <li><strong>Escalation:</strong> Dispatches escalation email if severity increases.</li>
-            <li><strong>Recovery:</strong> Sends <strong className="text-healthy">🟢 RECOVERY</strong> notification when safe bounds return.</li>
+            <li><strong>Recovery:</strong> Sends <strong className="text-emerald-700">🟢 RECOVERY</strong> notification when safe bounds return.</li>
           </ul>
         </div>
 
         {/* Sent Alert Log History */}
         <div>
           <div className="flex items-center justify-between mb-2">
-            <h4 className="text-xs font-black uppercase text-muted flex items-center gap-1.5">
-              <History className="h-3.5 w-3.5 text-accent" /> Sent Alert History Log
+            <h4 className="text-xs font-black uppercase text-slate-700 flex items-center gap-1.5">
+              <History className="h-3.5 w-3.5 text-blue-600" /> Sent Alert History Log
             </h4>
-            <span className="text-[10px] text-faint">Last 50 Events</span>
+            <span className="text-[10px] text-slate-500">Last 50 Events</span>
           </div>
 
-          <div className="max-h-40 overflow-y-auto rounded-xl border border-line bg-background-2/60 p-2 divide-y divide-line/40">
+          <div className="max-h-40 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50 p-2 divide-y divide-slate-200">
             {history.length === 0 ? (
-              <p className="p-3 text-center text-faint italic font-medium">No email alert events logged yet.</p>
+              <p className="p-3 text-center text-slate-400 italic font-medium">No email alert events logged yet.</p>
             ) : (
               history.map((item, idx) => (
                 <div key={idx} className="flex items-center justify-between p-2 text-[11px]">
                   <div className="flex items-center gap-2">
-                    <span className={`h-2 w-2 rounded-full ${item.severity === 'CRITICAL' ? 'bg-critical' : item.severity === 'WARNING' ? 'bg-warning' : 'bg-healthy'}`} />
-                    <span className="font-bold text-foreground">{item.battery_id}</span>
-                    <span className="text-muted">({item.severity})</span>
+                    <span className={`h-2 w-2 rounded-full ${item.severity === 'CRITICAL' ? 'bg-red-500' : item.severity === 'WARNING' ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+                    <span className="font-bold text-black">{item.battery_id}</span>
+                    <span className="text-slate-600">({item.severity})</span>
                   </div>
-                  <span className="text-faint font-mono text-[10px]">{new Date(item.timestamp).toLocaleTimeString()}</span>
+                  <span className="text-slate-500 font-mono text-[10px]">{new Date(item.timestamp).toLocaleTimeString()}</span>
                 </div>
               ))
             )}
